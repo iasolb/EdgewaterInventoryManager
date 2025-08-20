@@ -1,0 +1,8 @@
+﻿ShipperID,Shipper,AccountNumber,Phone,ContactPerson,Address1,Address2,City,State,Zip,ShipperComments
+1,FedEx,,,,,,,,,
+2,UPS,,,,,,,,,
+3,US Post Office,,,,,,,,,
+4,Air to Manchester,,,,,,,,,
+5,Grower Truck,,,,,,,,,
+6,Edgewater Pick-up,,,,,,,,,
+7,,,,,,,,,,
