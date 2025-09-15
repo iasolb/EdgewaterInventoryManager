@@ -8,7 +8,6 @@ USE `EdgewaterMaster`;
 SET NAMES 'UTF8';
 SET FOREIGN_KEY_CHECKS = 0;
 
--- Lookup/parent tables first
 DROP TABLE IF EXISTS `T_ItemType`;
 CREATE TABLE `T_ItemType` (
     `TypeID` INTEGER PRIMARY KEY,
@@ -90,7 +89,6 @@ CREATE TABLE `T_OrderNotes` (
     `OrderNote` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
--- Core entities
 DROP TABLE IF EXISTS `T_Items`;
 CREATE TABLE `T_Items` (
     `ItemID` INTEGER PRIMARY KEY,
@@ -107,7 +105,6 @@ CREATE TABLE `T_Items` (
     `SunConditions` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
--- Export view (one-to-one with T_Items)
 DROP TABLE IF EXISTS `T_Export_Items`;
 CREATE TABLE `T_Export_Items` (
     `ItemID` INTEGER PRIMARY KEY,
@@ -164,7 +161,6 @@ CREATE TABLE `T_Pitch` (
     `PitchReason` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
--- Orders domain
 DROP TABLE IF EXISTS `T_Orders`;
 CREATE TABLE `T_Orders` (
     `OrderID` INTEGER PRIMARY KEY,
@@ -200,31 +196,115 @@ CREATE TABLE `T_OrderItems` (
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
 -- Sun lookup table (standalone - no FK relationships enforced as per diagram)
+
 DROP TABLE IF EXISTS `T_Sun`;
 CREATE TABLE `T_Sun` (
     `SunConditionPic` TEXT PRIMARY KEY,
     `SunConditionName` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
-LOAD DATA INFILE '/datasource/ItemTypes.csv' INTO TABLE `T_ItemType` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/UnitCategories.csv' INTO TABLE `T_UnitCategory` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Units.csv' INTO TABLE `T_Units` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Brokers.csv' INTO TABLE `T_Brokers` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Shippers.csv' INTO TABLE `T_Shippers` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Suppliers.csv' INTO TABLE `T_Suppliers` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/GrowingSeasons.csv' INTO TABLE `T_GrowingSeason` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/OrderItemTypes.csv' INTO TABLE `T_OrderItemTypes` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/OrderNotes.csv' INTO TABLE `T_OrderNotes` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Items.csv' INTO TABLE `T_Items` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Prices.csv' INTO TABLE `T_Prices` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Plantings.csv' INTO TABLE `T_Plantings` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Inventory.csv' INTO TABLE `T_Inventory` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Pitch.csv' INTO TABLE `T_Pitch` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Orders.csv' INTO TABLE `T_Orders` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/OrderItems.csv' INTO TABLE `T_OrderItems` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
-LOAD DATA INFILE '/Users/ian/Desktop/MAINFRAME/Work/Edgewater/EdgewaterInventoryManager/datasource/Sun.csv' INTO TABLE `T_Sun` FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n';
+LOAD DATA LOCAL INFILE './datasource/ItemTypes.csv' 
+INTO TABLE `T_ItemType` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
 
-SET FOREIGN_KEY_CHECKS = 1;
+LOAD DATA LOCAL INFILE './datasource/UnitCategories.csv' 
+INTO TABLE `T_UnitCategory` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Units.csv' 
+INTO TABLE `T_Units` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Brokers.csv' 
+INTO TABLE `T_Brokers` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Shippers.csv' 
+INTO TABLE `T_Shippers` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Suppliers.csv' 
+INTO TABLE `T_Suppliers` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/GrowingSeasons.csv' 
+INTO TABLE `T_GrowingSeason` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/OrderItemTypes.csv' 
+INTO TABLE `T_OrderItemTypes` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/OrderNotes.csv' 
+INTO TABLE `T_OrderNotes` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Items.csv' 
+INTO TABLE `T_Items` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Prices.csv' 
+INTO TABLE `T_Prices` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Plantings.csv' 
+INTO TABLE `T_Plantings` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Inventory.csv' 
+INTO TABLE `T_Inventory` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Pitch.csv' 
+INTO TABLE `T_Pitch` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Orders.csv' 
+INTO TABLE `T_Orders` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/OrderItems.csv' 
+INTO TABLE `T_OrderItems` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
+LOAD DATA LOCAL INFILE './datasource/Sun.csv' 
+INTO TABLE `T_Sun` 
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' 
+LINES TERMINATED BY '\n' 
+IGNORE 1 LINES;
+
 
 ALTER TABLE `T_Items` ADD FOREIGN KEY (`TypeID`) REFERENCES `T_ItemType`(`TypeID`);
 ALTER TABLE `T_Items` ADD FOREIGN KEY (`UnitCategory`) REFERENCES `T_UnitCategory`(`UnitCategoryID`);
@@ -245,7 +325,7 @@ ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`Item
 ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`OrderItemTypeID`) REFERENCES `T_OrderItemTypes`(`OrderItemTypeID`);
 ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`OrderNote`) REFERENCES `T_OrderNotes`(`OrderNoteID`);
 
--- Indexes for performance (keeping these for query optimization)
+-- Indexes for performance (keeping  these for query optimization)
 CREATE INDEX `ix_Items_TypeID` ON `T_Items`(`TypeID`);
 CREATE INDEX `ix_Units_UnitCategory` ON `T_Units`(`UnitCategory`);
 CREATE INDEX `ix_Prices_ItemID` ON `T_Prices`(`ItemID`);
@@ -264,3 +344,5 @@ CREATE INDEX `ix_OrderItems_OrderID` ON `T_OrderItems`(`OrderID`);
 CREATE INDEX `ix_OrderItems_ItemID` ON `T_OrderItems`(`ItemID`);
 CREATE INDEX `ix_OrderItems_TypeID` ON `T_OrderItems`(`OrderItemTypeID`);
 CREATE INDEX `ix_OrderItems_OrderNote` ON `T_OrderItems`(`OrderNote`);
+
+SET FOREIGN_KEY_CHECKS = 1;
