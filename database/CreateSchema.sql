@@ -20,12 +20,12 @@ CREATE TABLE `T_UnitCategory` (
     `UnitCategory` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
-DROP TABLE IF EXISTS `T_Units`
+DROP TABLE IF EXISTS `T_Units`;
 CREATE TABLE `T_Units` (
     `UnitID` INTEGER PRIMARY KEY,
     `UnitType` TEXT,
     `UnitSize` TEXT,
-    `UnitCategory` INTEGER
+    `UnitCategoryID` INTEGER
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
 DROP TABLE IF EXISTS `T_Brokers`;
