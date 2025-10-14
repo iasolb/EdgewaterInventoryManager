@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  mysql:
+    build: .
+    container_name: edgewater_mysql
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/datasource:/var/lib/mysql-files
+      - ./backups:/backups
+      - ./logs/mysql:/var/log/mysql
+    networks:
+      - edgewater_network
+    command: --secure-file-priv=/var/lib/mysql-files
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: edgewater_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "${PMA_PORT}:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: ${MYSQL_USER}
+      PMA_PASSWORD: ${MYSQL_PASSWORD}
+      UPLOAD_LIMIT: 300M
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - edgewater_network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  edgewater_network:
+    driver: bridge
