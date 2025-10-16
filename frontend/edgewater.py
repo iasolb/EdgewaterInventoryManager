@@ -1,92 +1,46 @@
+"""
+Edgewater Inventory Management System - Landing Page
+Author: Ian Solberg
+Date: 10-16-2025
+"""
+
 import streamlit as st
 import pandas as pd
 import sys
 from pathlib import Path
 import base64
 
-# Add parent directory to path to import from root level modules
 sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 
 from database import get_db_session
-from models import Item  # Change to whatever table you want to display
+from models import Item
+from rest.api import EdgewaterAPI
 
-# Page configuration
+api = EdgewaterAPI()
+
 st.set_page_config(
     page_title="Edgewater Inventory Manager",
     page_icon="🌿",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-
-# Function to load and encode image for background
-def get_base64_image(image_path):
-    """Convert image to base64 for CSS background"""
-    try:
-        with open(image_path, "rb") as img_file:
-            return base64.b64encode(img_file.read()).decode()
-    except FileNotFoundError:
-        st.warning(f"Image not found: {image_path}")
-        return None
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "plants"
 
 
-# Add custom CSS with background image
-def set_background(image_path):
-    """Set background image using CSS"""
-    base64_image = get_base64_image(image_path)
-    if base64_image:
-        st.markdown(
-            f"""
-            <style>
-            .stApp {{
-                background-image: url("data:image/png;base64,{base64_image}");
-                background-size: cover;
-                background-position: center;
-                background-repeat: no-repeat;
-                background-attachment: fixed;
-            }}
-            /* Add semi-transparent overlay for better readability */
-            .stApp::before {{
-                content: "";
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background-color: rgba(255, 255, 255, 0.85);
-                z-index: -1;
-            }}
-            /* Style the dataframe container */
-            .dataframe-container {{
-                background-color: rgba(255, 255, 255, 0.95);
-                padding: 20px;
-                border-radius: 10px;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            }}
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+def change_page(page_name):
+    st.session_state.current_page = page_name
+    st.rerun()
 
 
-# Set paths - using absolute paths from the script location
-SCRIPT_DIR = Path(__file__).parent
-PROJECT_ROOT = SCRIPT_DIR.parent
-LOGO_PATH = (
-    PROJECT_ROOT / "database" / "datasource" / "image_assets" / "edgewater_logo.png"
-)
-BACKGROUND_PATH = (
-    PROJECT_ROOT
-    / "database"
-    / "datasource"
-    / "image_assets"
-    / "farmstand_background.png"
-)
+SCRIPT_DIR = api.SCRIPT_DIR
+PROJECT_ROOT = api.PROJECT_ROOT
+LOGO_PATH = api.LOGO_PATH
+BACKGROUND_PATH = api.BACKGROUND_PATH
+api.set_background(BACKGROUND_PATH)
 
-# Set background
-set_background(BACKGROUND_PATH)
-
-# Display logo in header
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     try:
@@ -95,67 +49,73 @@ with col2:
         st.title("🌿 Edgewater Inventory Manager")
         st.caption("(Logo image not found - add your logo to image_assets/)")
 
-# Main content
 btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
 with btn_col1:
-    st.button("Plants", disabled=False)
+    if st.button("Plants", disabled=False):
+        st.switch_page("pages/plants.py")
 with btn_col2:
-    st.button("Plantings", disabled=False)
+    if st.button("Plantings", disabled=False):
+        st.switch_page("pages/plantings.py")
 with btn_col3:
-    st.button("Label Generator (Coming Soon!)", disabled=False)
+    if st.button("Label Generator (Coming Soon!)", disabled=False):
+        st.switch_page("pages/label_generator.py")
 with btn_col4:
-    st.button("Sales and Analytics (Coming Soon!)", disabled=False)
+    if st.button("Sales and Analytics (Coming Soon!)", disabled=False):
+        st.switch_page("pages/sales_and_analytics.py")
 
-# Title for the table section
-st.header("Inventory Items")
+if st.session_state.current_page == "plants":
+    st.header("Inventory Items")
 
-# Fetch data from database
-try:
-    with get_db_session() as session:
-        # Query all items - change this to any table you want
-        items = session.query(Item).all()
+    try:
+        with get_db_session() as session:
+            items = session.query(Item).all()
 
-        # Convert to DataFrame
-        if items:
-            # Extract attributes from SQLAlchemy objects
-            data = []
-            for item in items:
-                # Get all columns from the model
-                item_dict = {
-                    column.name: getattr(item, column.name)
-                    for column in Item.__table__.columns
-                }
-                data.append(item_dict)
+            if items:
+                data = []
+                for item in items:
+                    item_dict = {
+                        column.name: getattr(item, column.name)
+                        for column in Item.__table__.columns
+                    }
+                    data.append(item_dict)
 
-            df = pd.DataFrame(data)
+                df = pd.DataFrame(data)
 
-            # Display the dataframe
-            st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
-            st.dataframe(df, use_container_width=True, hide_index=True, height=500)
-            st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
+                st.dataframe(df, use_container_width=True, hide_index=True, height=500)
+                st.markdown("</div>", unsafe_allow_html=True)
 
-            # Show row count
-            st.success(f"Total records: {len(df)}")
-        else:
-            st.info("No items found in the database.")
+                st.success(f"Total records: {len(df)}")
+            else:
+                st.info("No items found in the database.")
 
-except Exception as e:
-    st.error(f"Error connecting to database: {str(e)}")
-    st.info("Make sure your database is running and properly configured in .env")
+    except Exception as e:
+        st.error(f"Error connecting to database: {str(e)}")
+        st.info("Make sure your database is running and properly configured in .env")
 
-    # Show example of what would be displayed
-    st.subheader("Example Data (Database not connected)")
-    example_df = pd.DataFrame(
-        {
-            "ID": [1, 2, 3],
-            "Name": ["Tomato", "Lettuce", "Cucumber"],
-            "Type": ["Vegetable", "Vegetable", "Vegetable"],
-            "Price": [2.99, 1.99, 1.49],
-        }
-    )
-    st.dataframe(example_df, use_container_width=True)
+        st.subheader("Example Data (Database not connected)")
+        example_df = pd.DataFrame(
+            {
+                "ID": [1, 2, 3],
+                "Name": ["Tomato", "Lettuce", "Cucumber"],
+                "Type": ["Vegetable", "Vegetable", "Vegetable"],
+                "Price": [2.99, 1.99, 1.49],
+            }
+        )
+        st.dataframe(example_df, use_container_width=True)
 
-# Footer
+elif st.session_state.current_page == "plantings":
+    st.header("Plantings")
+    st.info("Plantings page content coming soon!")
+
+elif st.session_state.current_page == "label_generator":
+    st.header("Label Generator")
+    st.info("Label Generator feature coming soon!")
+
+elif st.session_state.current_page == "sales_analytics":
+    st.header("Sales and Analytics")
+    st.info("Sales and Analytics feature coming soon!")
+
 st.markdown("---")
 st.markdown(
     """
