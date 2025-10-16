@@ -98,13 +98,13 @@ with col2:
 # Main content
 btn_col1, btn_col2, btn_col3, btn_col4 = st.columns(4)
 with btn_col1:
-    st.button("Label Generator (Coming Soon!)", disabled=False)
+    st.button("Plants", disabled=False)
 with btn_col2:
-    st.button("Order Management (Coming Soon!)", disabled=False)
+    st.button("Plantings", disabled=False)
 with btn_col3:
-    st.button("Data Editor (Coming Soon!)", disabled=False)
+    st.button("Label Generator (Coming Soon!)", disabled=False)
 with btn_col4:
-    st.button("Analytics Dashboard (Coming Soon!)", disabled=False)
+    st.button("Sales and Analytics (Coming Soon!)", disabled=False)
 
 # Title for the table section
 st.header("Inventory Items")

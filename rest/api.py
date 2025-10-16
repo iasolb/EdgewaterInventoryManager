@@ -8,6 +8,6 @@ from loguru import logger
 
 class EdgewaterAPI:
     """Class to interact with Edgewater API"""
-
+    
     def __init__(self, *args, **kwds):
         pass
