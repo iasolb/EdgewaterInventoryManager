@@ -40,7 +40,6 @@ PROJECT_ROOT = api.PROJECT_ROOT
 LOGO_PATH = api.LOGO_PATH
 BACKGROUND_PATH = api.BACKGROUND_PATH
 api.set_background(BACKGROUND_PATH)
-
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     try:

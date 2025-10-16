@@ -75,3 +75,31 @@ class EdgewaterAPI:
                 """,
                 unsafe_allow_html=True,
             )
+
+    """
+    PLANTS WORKFLOW METHODS
+    """
+
+    def get_plants(self):
+        pass
+
+    """
+    PLANTINGS WORKFLOW METHODS
+    """
+
+    def get_plantings(self):
+        pass
+
+    """
+    LABEL GENERATING WORKFLOW METHODS
+    """
+
+    def get_label_info(self):
+        pass
+
+    """
+    SALES & ANALYTICS WORKFLOW METHODS
+    """
+
+    def get_orders(self):
+        pass
