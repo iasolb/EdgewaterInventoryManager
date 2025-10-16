@@ -22,8 +22,8 @@ logs/
 *.log
 npm-debug.log*
 
-# Tests
-
+# Tests + Notes
+notes/
 tests/
 
 # OS Files

@@ -227,11 +227,13 @@ class EdgewaterAPI:
             raise
 
     """
-    PLANTS WORKFLOW METHODS
+    MANAGE INVENTORY WORKFLOW METHODS
     """
 
-    def get_plants(self):
-        pass
+    def get_plant_list_full(self):
+        """
+        Joins Items, Inventory, SunConditions
+        """
 
     """
     PLANTINGS WORKFLOW METHODS
