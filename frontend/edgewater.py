@@ -8,11 +8,9 @@ import streamlit as st
 import pandas as pd
 import sys
 from pathlib import Path
-import base64
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
-
 from database import get_db_session
 from models import Item
 from rest.api import EdgewaterAPI
@@ -39,7 +37,7 @@ SCRIPT_DIR = api.SCRIPT_DIR
 PROJECT_ROOT = api.PROJECT_ROOT
 LOGO_PATH = api.LOGO_PATH
 BACKGROUND_PATH = api.BACKGROUND_PATH
-api.set_background(BACKGROUND_PATH)
+api.set_background(BACKGROUND_PATH, black_and_white=False, overlay_opacity=0.85, blur=0)
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     try:
@@ -56,10 +54,10 @@ with btn_col2:
     if st.button("Plantings", disabled=False):
         st.switch_page("pages/plantings.py")
 with btn_col3:
-    if st.button("Label Generator (Coming Soon!)", disabled=False):
+    if st.button("Label Generator", disabled=False):
         st.switch_page("pages/label_generator.py")
 with btn_col4:
-    if st.button("Sales and Analytics (Coming Soon!)", disabled=False):
+    if st.button("Sales and Analytics", disabled=False):
         st.switch_page("pages/sales_and_analytics.py")
 
 if st.session_state.current_page == "plants":
