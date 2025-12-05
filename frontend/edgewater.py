@@ -41,7 +41,7 @@ api.set_background(BACKGROUND_PATH, black_and_white=False, overlay_opacity=0.85,
 
 col1, col2, col3 = st.columns([1, 1, 1])
 with col2:
-    st.title("Edgewater Database Manager")
+    st.markdown("### Edgewater Database Manager")
     try:
         st.image(LOGO_PATH, width=400)
     except:

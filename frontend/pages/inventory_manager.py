@@ -4,12 +4,13 @@ Author: Ian Solberg
 Date: 10-16-2025
 """
 
+# ====== IMPORTS ======
+from sqlalchemy import Text
 import streamlit as st
 import pandas as pd
 import sys
 from pathlib import Path
 
-# Add paths
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 
@@ -17,18 +18,18 @@ from database import get_db_session
 from models import Item
 from rest.api import EdgewaterAPI
 
-# ===== MUST BE FIRST STREAMLIT COMMAND =====
+# ===== STREAMLIT CONFIG =====
+
 st.set_page_config(
     page_title="Inventory Manager",
     page_icon="🌿",
     layout="wide",
     initial_sidebar_state="expanded",
 )
-
-# ===== NOW you can use other Streamlit commands =====
+st.session_state.show_form = False
+# ===== INITIALIZE API AND PAGE =====
 api = EdgewaterAPI()
 
-# Hide default navigation
 st.markdown(
     """
     <style>
@@ -40,25 +41,13 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Set background
 api.set_background(
     api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
 )
 
-# Sidebar
+# ==== Sidebar ==============
 st.sidebar.header("Edgewater Inventory Manager")
-left_col, middle_col, right_col = st.columns([1, 2, 1])
-
-# Back button in left column
-with left_col:
-    if st.button("← Back"):
-        st.switch_page("edgewater.py")
-
-# Content box in right column
-with right_col:
-    if st.button("Add New Item", disabled=False):
-        pass
-    st.write("This feature is coming soon!")
+options = st.container()
 
 
 ## SideBar Filters
@@ -69,14 +58,70 @@ selected_search = st.sidebar.text_input("Search Items")
 
 # ===== TypeID Selection (MultiSelect) =====
 st.sidebar.write("Select Item Types to Filter:")
+item_types = api.get_item_types()
 selected_types = st.sidebar.multiselect(
     "Item Types",
-    options=["Vegetable", "Fruit", "Herb", "Flower"],
+    options=item_types["Type"].tolist(),
     default=[],
     key="selected_types",
 )
 
-# ===== Item Table (DataFrame) =====
+# Top row with buttons
+top_row = st.columns([1, 2, 1])
+
+with top_row[0]:  # left column - back button
+    if st.button("Add New Item", disabled=False):
+        st.session_state.show_form = True
+
+if st.session_state.show_form:
+    with st.form("add_item_form"):
+        st.write("Add Item Information")
+        Item = st.text_input("Item Name")
+        Variety = st.text_input("Variety")
+        Inactive = st.checkbox("Inactive", value=False)
+        Color = st.text_input("Color")
+        ShouldStock = st.checkbox("Should Stock", value=False)
+        TypeID = st.selectbox("Item Type", options=api.get_item_types())
+        LabelDescription = st.text_area("Label Description")
+        Definition = st.text_area("Definition")
+        PictureLink = st.text_input("Picture Link")
+        SunConditions = st.selectbox("Sun Conditions", options=api.get_sun_conditions())
+
+        # Every form must have a submit button.
+        submitted = st.form_submit_button("Submit")
+        if submitted:
+            decoded_item_type = api.decode_type(TypeID)
+            item_data = {
+                "Item": Item,
+                "Variety": Variety,
+                "Inactive": Inactive,
+                "Color": Color,
+                "ShouldStock": ShouldStock,
+                "TypeID": api.get_type_id_by_name(TypeID),
+                "LabelDescription": LabelDescription,
+                "Definition": Definition,
+                "PictureLink": PictureLink,
+                "SunConditions": SunConditions,
+            }
+            api._create(model_class=Item, data=item_data)
+        st.write("This feature is coming soon!")
+
+with top_row[1]:  # middle column - empty or title
+    pass
+
+
 # ===== Add New Item (Form) =====
+with top_row[2]:  # right column - add button
+    if st.button("← Back"):
+        st.switch_page("edgewater.py")
+
+# ===== Item Table (DataFrame) =====
+
+content_layout = st.columns([0.1, 15, 0.1])
+
+with content_layout[1]:  # middle column with the dataframe
+    data = api.get_plant_list_full()
+    st.dataframe(data, use_container_width=True)
+
 # ===== Edit Existing Item (Form) =====
 # ===== Delete Item (Button with Confirmation) =====

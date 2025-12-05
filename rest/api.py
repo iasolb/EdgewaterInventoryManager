@@ -10,7 +10,26 @@ from database import get_db_session
 from typing import List, Dict, Any, Optional
 from loguru import logger
 import base64
+from models import (
+    Inventory,
+    Item,
+    ItemType,
+    Unit,
+    UnitCategory,
+    Broker,
+    Shipper,
+    Supplier,
+    GrowingSeason,
+    OrderItemType,
+    OrderNote,
+    Price,
+    Planting,
+    Pitch,
+    Order,
+    OrderItem,
+)
 import streamlit as st
+import os
 from pathlib import Path
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -118,16 +137,27 @@ class EdgewaterAPI:
         try:
             with get_db_session() as session:
                 query = session.query(model_class)
-
                 if filters:
                     for column, value in filters.items():
                         query = query.filter(getattr(model_class, column) == value)
-
                 results = query.all()
                 logger.info(
                     f"Retrieved {len(results)} records from {model_class.__tablename__}"
                 )
-                return results
+                clean_data = []
+                for row in results:
+                    row_dict = {}
+                    for key, value in row.__dict__.items():
+                        if (
+                            key != "_sa_instance_state"
+                        ):  # Skip SQLAlchemy internal state
+                            row_dict[key] = (
+                                value  # unpack the iterator object (must happen in lowest level crud before session closes)
+                            )
+                    clean_data.append(row_dict)
+
+                return pd.DataFrame(clean_data)
+
         except SQLAlchemyError as e:
             logger.error(f"Error retrieving records: {e}")
             raise
@@ -232,22 +262,137 @@ class EdgewaterAPI:
 
     def get_plant_list_full(self):
         """
-        Joins Items, Inventory, SunConditions
+        Joins Items, Inventory, ItemType tables to get full plant list
         """
+        from models import Item, Inventory, ItemType
+
+        try:
+            items = self._get_all(model_class=Item)
+            inv = self._get_all(model_class=Inventory)
+            item_types = self._get_all(model_class=ItemType)
+            combined1 = pd.merge(items, inv, on="ItemID")
+            combined2 = pd.merge(combined1, item_types, on="TypeID")
+            combined2.sort_values(by="DateCounted", ascending=False, inplace=True)
+            result = combined2[
+                [
+                    "Item",
+                    "Variety",
+                    "Color",
+                    "NumberOfUnits",
+                    "Type",
+                    "DateCounted",
+                    "LabelDescription",
+                    "ShouldStock",
+                    "Inactive",
+                    "ItemID",
+                    "TypeID",
+                    "InventoryID",
+                    "Definition",
+                    "PictureLink",
+                    "UnitID",
+                    "InventoryComments",
+                ]
+            ]  # Plant list columns
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Inventory List: {e}")
+            return pd.DataFrame()
+
+    def decode_type(self, type_name: str) -> int:
+        """
+        retrieves the numerical coding for typeID in items table
+        """
+        type_mapping = {
+            "Unassigned": 0,
+            "Soil": 3,
+            "Labels and Tags": 4,
+            "Annual": 6,
+            "Perennial": 7,
+            "Vegetable": 8,
+            "Hard Good": 11,
+            "Fruit": 12,
+            "Herb": 13,
+        }
+        return type_mapping.get(type_name, 0)  # Default to 0 if not found
+
+    def get_sun_conditions(self):
+        """
+        Get list of sun conditions for dropdowns
+        """
+        return self._get_all(model_class=Item).SunConditions.unique().tolist()
+
+    def get_item_types(self):
+        """
+        Get list of item types for dropdowns
+        """
+        from models import ItemType
+
+        return pd.DataFrame(self._get_all(model_class=ItemType))
+
+    def add_to_plant_list(self, plant_data: Dict[str, Any]):
+        from models import Item
+
+        try:
+            last_id = self._get_all(model_class=Item)["ItemID"].max()
+            plant_data["ItemID"] = last_id + 1
+            self._create(model_class=Item, data=plant_data)
+        except Exception as e:
+            print(f"Error adding to plant list: {e}")
+
+    def delete_item_entry(self, plant_id: int):
+        from models import Item, Inventory
+
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error deleting item entry: {e}")
+
+    def update_item_info(self, plant_id: int, updates: Dict[str, Any]):
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error updating item info: {e}")
 
     """
     PLANTINGS WORKFLOW METHODS
     """
 
     def get_plantings(self):
-        pass
+        from models import UnitCategory, Planting, Item
+
+        try:
+            plantings = self._get_all(model_class=Planting)
+            items = self._get_all(model_class=Item)
+            unit_categories = self._get_all(model_class=UnitCategory)
+            combined1 = pd.merge(plantings, items, on="ItemID")
+            combined2 = pd.merge(combined1, unit_categories, on="UnitID")
+            result = combined2[[
+                #TODO add column order
+            ]]
+        except:
+            pass
 
     """
     LABEL GENERATING WORKFLOW METHODS
     """
 
     def get_label_info(self):
-        pass
+        plant_list = self.get_plant_list_full()
+        result = plant_list[
+                [
+                    "Item",
+                    "Variety",
+                    "Color",
+                    "Type",
+                    "LabelDescription",
+                    "InventoryID",
+                    "Definition",
+                    "PictureLink",
+                    "UnitID",
+                    "InventoryComments",
+                ]
+            ]  
+        return label_data
 
     """
     SALES & ANALYTICS WORKFLOW METHODS
