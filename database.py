@@ -13,10 +13,8 @@ from loguru import logger
 
 from config import get_config
 
-# Get configuration
 config = get_config()
 
-# SQLAlchemy setup
 engine = create_engine(
     config.SQLALCHEMY_DATABASE_URI,
     pool_pre_ping=True,

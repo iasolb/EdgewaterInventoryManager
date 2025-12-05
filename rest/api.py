@@ -370,7 +370,7 @@ class EdgewaterAPI:
     PLANTINGS WORKFLOW METHODS
     """
 
-    def get_plantings_display(self):
+    def _get_plantings_full(self) -> pd.DataFrame:
         from models import UnitCategory, Planting, Item
 
         try:
@@ -378,14 +378,38 @@ class EdgewaterAPI:
             items = self._get_all(model_class=Item)
             unit_categories = self._get_all(model_class=UnitCategory)
             combined1 = pd.merge(plantings, items, on="ItemID")
-            combined2 = pd.merge(combined1, unit_categories, on="UnitID")
-            result = combined2[
+            combined2 = pd.merge(
+                combined1, unit_categories, left_on="UnitID", right_on="UnitCategoryID"
+            )
+            result = combined2.sort_values(
+                by=["Inactive", "DatePlanted"],
+                ascending=False,
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Inventory List: {e}")
+            return pd.DataFrame()
+
+    def get_plantings_display(self) -> pd.DataFrame:
+        try:
+            full = self._get_plantings_full()
+            plantings_display = full[
                 [
-                    # TODO add column order
+                    "PlantingID",
+                    "NumberOfUnits",
+                    "Item",
+                    "Variety",
+                    "Color",
+                    "DatePlanted",
+                    "UnitID",
+                    "PlantingComments",
+                    "ItemID",
                 ]
             ]
-        except:
-            pass
+            return plantings_display
+        except Exception as e:
+            logger.error(f"error retriving plantings subset: {e}")
+            return pd.DataFrame()
 
     """
     LABEL GENERATING WORKFLOW METHODS

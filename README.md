@@ -29,6 +29,10 @@ edgewater-inventory-manager/
 │       ├── Suppliers.csv
 │       ├── UnitCategory.csv
 │       └── Units.csv
+        📁 image_assets/
+            📁 SunCondtions
+               sun condition images
+            images for backgrounds etc 
 │
 ├── 📁 backups/                     # Database backups
 │   └── .gitkeep
@@ -175,9 +179,8 @@ edgewater-inventory-manager/
    - Configure ports if needed
 
 4. **Build Database**
-   ```bash
-   make build
-   make up
+   ```
+   "open docker and run" docker-compose up -d
    ```
    - Builds Docker images
    - Starts MySQL container
@@ -197,70 +200,3 @@ edgewater-inventory-manager/
    python test_connection.py
    make db-stats
    ```
-
-## Adding New Files
-
-### Adding a Python Module
-
-```python
-# my_module.py
-from database import Database, get_db_session
-from models import Item
-from config import get_config
-
-# Your code here
-```
-
-### Adding a Script
-
-```bash
-# scripts/my_script.py
-#!/usr/bin/env python3
-import sys
-sys.path.insert(0, '..')  # Add parent directory to path
-
-from database import Database
-# Your script code
-```
-
-### Adding SQL Queries
-
-```sql
--- queries/custom_query.sql
--- Place custom SQL queries here for reference
-SELECT * FROM T_Items WHERE ...;
-```
-
-## File Permissions
-
-```bash
-# Make scripts executable
-chmod +x test_connection.py
-
-# Ensure CSV files are readable
-chmod 644 database/datasource/*.csv
-
-# Protect environment file
-chmod 600 .env
-```
-
-## Migration Notes
-
-This structure is designed to:
-- ✅ Keep database and application code separate
-- ✅ Allow easy Docker deployment
-- ✅ Support both raw SQL and ORM approaches
-- ✅ Enable backup/restore operations
-- ✅ Facilitate future web frontend development
-- ✅ Maintain clean version control
-- ✅ Support multiple Python frameworks (Flask, FastAPI, Streamlit)
-
-## Next Steps
-
-After setup, you can:
-1. Build a web interface (Flask/FastAPI/Streamlit)
-2. Create data analysis scripts
-3. Add automated reports
-4. Implement data visualization
-5. Build REST API endpoints
-6. Add authentication layer

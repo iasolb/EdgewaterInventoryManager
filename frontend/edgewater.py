@@ -19,7 +19,7 @@ api = EdgewaterAPI()
 
 st.set_page_config(
     page_title="Edgewater Inventory Manager",
-    page_icon="🌿",
+    page_icon="🌿",  # TODO get or create a real favicon
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -73,40 +73,3 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-#     try:
-#         with get_db_session() as session:
-#             items = session.query(Item).all()
-
-#             if items:
-#                 data = []
-#                 for item in items:
-#                     item_dict = {
-#                         column.name: getattr(item, column.name)
-#                         for column in Item.__table__.columns
-#                     }
-#                     data.append(item_dict)
-
-#                 df = pd.DataFrame(data)
-
-#                 st.markdown('<div class="dataframe-container">', unsafe_allow_html=True)
-#                 st.dataframe(df, use_container_width=True, hide_index=True, height=500)
-#                 st.markdown("</div>", unsafe_allow_html=True)
-
-#                 st.success(f"Total records: {len(df)}")
-#             else:
-#                 st.info("No items found in the database.")
-
-#     except Exception as e:
-#         st.error(f"Error connecting to database: {str(e)}")
-#         st.info("Make sure your database is running and properly configured in .env")
-
-#         st.subheader("Example Data (Database not connected)")
-#         example_df = pd.DataFrame(
-#             {
-#                 "ID": [1, 2, 3],
-#                 "Name": ["Tomato", "Lettuce", "Cucumber"],
-#                 "Type": ["Vegetable", "Vegetable", "Vegetable"],
-#                 "Price": [2.99, 1.99, 1.49],
-#             }
-#         )
-#         st.dataframe(example_df, use_container_width=True)
