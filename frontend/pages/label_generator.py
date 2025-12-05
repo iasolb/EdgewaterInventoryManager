@@ -33,3 +33,11 @@ btn_col1 = st.columns(1)[0]
 with btn_col1:
     if st.button("Back", disabled=False):
         st.switch_page("edgewater.py")
+
+
+content_layout = st.columns([0.1, 30, 0.1])
+
+with content_layout[1]:  # middle column with the dataframe
+    label_data, sun_conditions = api.get_label_display()
+    st.dataframe(label_data, use_container_width=True)
+    st.dataframe(sun_conditions, use_container_width=True)

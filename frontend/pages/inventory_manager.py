@@ -117,7 +117,7 @@ with top_row[2]:  # right column - add button
 
 # ===== Item Table (DataFrame) =====
 
-content_layout = st.columns([0.1, 15, 0.1])
+content_layout = st.columns([0.1, 30, 0.1])
 
 with content_layout[1]:  # middle column with the dataframe
     data = api.get_plant_list_display()

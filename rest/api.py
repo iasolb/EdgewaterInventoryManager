@@ -415,24 +415,45 @@ class EdgewaterAPI:
     LABEL GENERATING WORKFLOW METHODS
     """
 
-    def get_label_display(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        plant_list_full = self._get_plant_list_full()
-        sun_conditions = plant_list_full["SunConditions"]
-        label_data = plant_list_full[
-            [
-                "Item",
-                "Variety",
-                "Color",
-                "Type",
-                "LabelDescription",
-                "InventoryID",
-                "Definition",
-                "PictureLink",
-                "UnitID",
-                "InventoryComments",
+    def _get_full_label_data(self) -> pd.DataFrame:
+        from models import Item, ItemType, Price
+
+        try:
+            items = self._get_all(model_class=Item)
+            prices = self._get_all(model_class=Price)
+            item_types = self._get_all(model_class=ItemType)
+            combined1 = pd.merge(items, prices, on="ItemID", how="left")
+            results = pd.merge(combined1, item_types, on="TypeID", how="left")
+            return results
+        except Exception as e:
+            logger.error(f"Error retrieving Label Data: {e}")
+            return pd.DataFrame()
+
+    def get_label_display(
+        self, item_id: Optional[int] = None
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        try:
+            label_data_full = self._get_full_label_data()
+
+            if item_id:
+                label_data_full = label_data_full[label_data_full["ItemID"] == item_id]
+
+            sun_conditions = label_data_full["SunConditions"]
+            label_data = label_data_full[
+                [
+                    "Item",
+                    "Variety",
+                    "Color",
+                    "Type",
+                    "LabelDescription",
+                    "Definition",
+                    "UnitPrice",
+                ]
             ]
-        ]
-        return label_data, sun_conditions
+            return label_data, sun_conditions
+        except Exception as e:
+            logger.error(f"Error getting label display: {e}")
+            return pd.DataFrame(), pd.DataFrame()
 
     """
     ORDER TRACKIGN WORKFLOWS
