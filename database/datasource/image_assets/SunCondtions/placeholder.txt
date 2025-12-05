@@ -1,0 +1,21 @@
+
+
+
+## TODO
+
+get images for the following sun conditions
+
+
+['all.jpg',
+ 'sun.jpg',
+ 'part-sun_sun.jpg',
+ 'pt-sun_shade.jpg',
+ 'part-sun.jpg',
+ 'blank.jpg',
+ 'part-sun_shade.jpg',
+ 'shade.jpg',
+ 'all_conditions.jpg',
+ 'any',
+
+
+ 

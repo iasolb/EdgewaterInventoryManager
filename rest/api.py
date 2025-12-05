@@ -9,6 +9,8 @@ import requests
 from database import get_db_session
 from typing import List, Dict, Any, Optional
 from loguru import logger
+from collections import defaultdict
+from typing import Tuple, Optional, DefaultDict
 import base64
 from models import (
     Inventory,
@@ -260,7 +262,7 @@ class EdgewaterAPI:
     MANAGE INVENTORY WORKFLOW METHODS
     """
 
-    def get_plant_list_full(self):
+    def _get_plant_list_full(self) -> pd.DataFrame:
         """
         Joins Items, Inventory, ItemType tables to get full plant list
         """
@@ -272,8 +274,19 @@ class EdgewaterAPI:
             item_types = self._get_all(model_class=ItemType)
             combined1 = pd.merge(items, inv, on="ItemID")
             combined2 = pd.merge(combined1, item_types, on="TypeID")
-            combined2.sort_values(by="DateCounted", ascending=False, inplace=True)
-            result = combined2[
+            result = combined2.sort_values(
+                by="DateCounted",
+                ascending=False,
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Inventory List: {e}")
+            return pd.DataFrame()
+
+    def get_plant_list_display(self) -> pd.DataFrame:
+        try:
+            plant_list_full = self._get_plant_list_full()
+            result = plant_list_full[
                 [
                     "Item",
                     "Variety",
@@ -292,10 +305,10 @@ class EdgewaterAPI:
                     "UnitID",
                     "InventoryComments",
                 ]
-            ]  # Plant list columns
+            ]  # Plant list display columns
             return result
         except Exception as e:
-            logger.error(f"Error retrieving Inventory List: {e}")
+            logger.error(f"Error Inventory Display Subset: {e}")
             return pd.DataFrame()
 
     def decode_type(self, type_name: str) -> int:
@@ -315,7 +328,7 @@ class EdgewaterAPI:
         }
         return type_mapping.get(type_name, 0)  # Default to 0 if not found
 
-    def get_sun_conditions(self):
+    def get_sun_conditions(self) -> List:
         """
         Get list of sun conditions for dropdowns
         """
@@ -357,7 +370,7 @@ class EdgewaterAPI:
     PLANTINGS WORKFLOW METHODS
     """
 
-    def get_plantings(self):
+    def get_plantings_display(self):
         from models import UnitCategory, Planting, Item
 
         try:
@@ -366,9 +379,11 @@ class EdgewaterAPI:
             unit_categories = self._get_all(model_class=UnitCategory)
             combined1 = pd.merge(plantings, items, on="ItemID")
             combined2 = pd.merge(combined1, unit_categories, on="UnitID")
-            result = combined2[[
-                #TODO add column order
-            ]]
+            result = combined2[
+                [
+                    # TODO add column order
+                ]
+            ]
         except:
             pass
 
@@ -376,27 +391,32 @@ class EdgewaterAPI:
     LABEL GENERATING WORKFLOW METHODS
     """
 
-    def get_label_info(self):
-        plant_list = self.get_plant_list_full()
-        result = plant_list[
-                [
-                    "Item",
-                    "Variety",
-                    "Color",
-                    "Type",
-                    "LabelDescription",
-                    "InventoryID",
-                    "Definition",
-                    "PictureLink",
-                    "UnitID",
-                    "InventoryComments",
-                ]
-            ]  
-        return label_data
+    def get_label_display(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        plant_list_full = self._get_plant_list_full()
+        sun_conditions = plant_list_full["SunConditions"]
+        label_data = plant_list_full[
+            [
+                "Item",
+                "Variety",
+                "Color",
+                "Type",
+                "LabelDescription",
+                "InventoryID",
+                "Definition",
+                "PictureLink",
+                "UnitID",
+                "InventoryComments",
+            ]
+        ]
+        return label_data, sun_conditions
 
     """
-    SALES & ANALYTICS WORKFLOW METHODS
+    ORDER TRACKIGN WORKFLOWS
     """
 
     def get_orders(self):
         pass
+
+    """
+    SALES & ANALYTICS WORKFLOWS
+    """

@@ -120,7 +120,7 @@ with top_row[2]:  # right column - add button
 content_layout = st.columns([0.1, 15, 0.1])
 
 with content_layout[1]:  # middle column with the dataframe
-    data = api.get_plant_list_full()
+    data = api.get_plant_list_display()
     st.dataframe(data, use_container_width=True)
 
 # ===== Edit Existing Item (Form) =====
