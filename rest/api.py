@@ -415,7 +415,7 @@ class EdgewaterAPI:
     LABEL GENERATING WORKFLOW METHODS
     """
 
-    def _get_full_label_data(self) -> pd.DataFrame:
+    def _get_label_data_full(self) -> pd.DataFrame:
         from models import Item, ItemType, Price
 
         try:
@@ -426,14 +426,14 @@ class EdgewaterAPI:
             results = pd.merge(combined1, item_types, on="TypeID", how="left")
             return results
         except Exception as e:
-            logger.error(f"Error retrieving Label Data: {e}")
+            logger.error(f"Error retrieving Label Data from db: {e}")
             return pd.DataFrame()
 
     def get_label_display(
         self, item_id: Optional[int] = None
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         try:
-            label_data_full = self._get_full_label_data()
+            label_data_full = self._get_label_data_full()
 
             if item_id:
                 label_data_full = label_data_full[label_data_full["ItemID"] == item_id]
@@ -452,16 +452,145 @@ class EdgewaterAPI:
             ]
             return label_data, sun_conditions
         except Exception as e:
-            logger.error(f"Error getting label display: {e}")
+            logger.error(f"Error getting label subset: {e} (data operations error)")
             return pd.DataFrame(), pd.DataFrame()
 
     """
     ORDER TRACKIGN WORKFLOWS
     """
 
-    def get_orders(self):
-        pass
+    def _get_orders_full(self) -> pd.DataFrame:
+        try:
+            orderitems = self._get_all(model_class=OrderItem)
+            orders = self._get_all(model_class=Order)
+            orderitemstype = self._get_all(model_class=OrderItemType)
+            ordernote = self._get_all(model_class=OrderNote)
+            brokers = self._get_all(model_class=Broker)
+            shippers = self._get_all(model_class=Shipper)
+            suppliers = self._get_all(model_class=Supplier)
+            combined1 = pd.merge(orderitems, orders, on="OrderID", how="left")
+            combined2 = pd.merge(
+                combined1, orderitemstype, on="OrderItemTypeID", how="left"
+            )
+            combined3 = pd.merge(
+                combined2,
+                ordernote,
+                left_on="OrderNote",
+                right_on="OrderNoteID",
+                how="left",
+            )
+            combined4 = pd.merge(combined3, brokers, on="BrokerID", how="left")
+            combined5 = pd.merge(combined4, shippers, on="ShipperID", how="left")
+            combined6 = pd.merge(combined5, suppliers, on="SupplierID", how="left")
+            result = combined6.sort_values(
+                by=["DatePlaced", "DateDue"],
+                ascending=False,
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Orders Data from db: {e}")
+            return pd.DataFrame()
+
+    def get_orders_display(self) -> pd.DataFrame:
+        try:
+            full_orders = self._get_orders_full()
+            result = full_orders[
+                [
+                    "Supplier",
+                    "Broker",
+                    "Shipper",
+                    "DatePlaced",
+                    "DateDue",
+                    "DateReceived",
+                    "Received",
+                    "ToOrder",
+                    "ItemCode",
+                    "ItemID",
+                    "Unit",
+                    "NumberOfUnits",
+                    "UnitPrice",
+                    "OrderNote_x",
+                    "OrderNote_y",
+                    "OrderComments_x",
+                    "Leftover",
+                    "OrderItemID",
+                    "OrderID",
+                    "GrowingSeason",
+                    "OrderItemType",
+                    "OrderNumber",
+                    "TrackingNumber",
+                    "TotalCost",
+                    "BrokerComments",
+                    "ShipperComments",
+                    "SupplierComments",
+                ]
+            ]
+            result = result.rename(
+                columns={
+                    "OrderNote_x": "OrderNoteCode",
+                    "OrderNote_y": "OrderNoteDecode",
+                    "OrderComments_x": "OrderComments",
+                }
+            )
+            return result
+        except Exception as e:
+            logger.error(
+                f"Error getting Order data subset: {e} (data operations error)"
+            )
+            return pd.DataFrame(), pd.DataFrame()
+
+    def get_orders_summary(self) -> pd.DataFrame:
+        try:
+            full_orders = self.get_orders_display()
+            summary = (
+                full_orders.groupby("OrderID")
+                .agg(
+                    {
+                        "Supplier": "first",
+                        "Broker": "first",
+                        "Shipper": "first",
+                        "DatePlaced": "first",
+                        "DateDue": "first",
+                        "DateReceived": "first",
+                        "Received": "first",
+                        "OrderNumber": "first",
+                        "TrackingNumber": "first",
+                        "TotalCost": "first",
+                        "GrowingSeason": "first",
+                        "OrderItemID": "count",
+                        "OrderComments": "first",
+                        "BrokerComments": "first",
+                        "ShipperComments": "first",
+                        "SupplierComments": "first",
+                    }
+                )
+                .reset_index()
+            )
+
+            # Rename count column since counting number of unique items
+            summary = summary.rename(columns={"OrderItemID": "UniqueItems"})
+            result = summary.sort_values(by="DatePlaced", ascending=False)
+            return result
+        except Exception as e:
+            logger.error(f"Error getting orders summary: {e}")
+            return pd.DataFrame()
 
     """
     SALES & ANALYTICS WORKFLOWS
     """
+
+    def _get_sales_full(self) -> pd.DataFrame:
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error retrieving Sales Data from db: {e}")
+            return pd.DataFrame()
+
+    def get_sales_display(self) -> pd.DataFrame:
+        try:
+            pass
+        except Exception as e:
+            logger.error(
+                f"Error getting sales data subset: {e} (data operations error)"
+            )
+            return pd.DataFrame(), pd.DataFrame()

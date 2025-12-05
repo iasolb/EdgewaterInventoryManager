@@ -34,3 +34,13 @@ btn_col1 = st.columns(1)[0]
 with btn_col1:
     if st.button("Back", disabled=False):
         st.switch_page("edgewater.py")
+
+content_layout = st.columns([0.1, 30, 0.1])
+
+with content_layout[1]:  # middle column with the dataframe
+    st.write("Per-Order Summary")
+    summary = api.get_orders_summary()
+    st.dataframe(summary, use_container_width=True)
+    st.write("Expanded Orders (each item)")
+    data = api.get_orders_display()
+    st.dataframe(data, use_container_width=True)

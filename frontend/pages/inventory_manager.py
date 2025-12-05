@@ -69,11 +69,22 @@ selected_types = st.sidebar.multiselect(
 # Top row with buttons
 top_row = st.columns([1, 2, 1])
 
+# back button
 with top_row[0]:  # left column - back button
+    if st.button("← Back"):
+        st.switch_page("edgewater.py")
+
+with top_row[1]:  # middle column - empty or title
+    pass
+
+with top_row[2]:  # Add Item Button
     if st.button("Add New Item", disabled=False):
         st.session_state.show_form = True
 
-if st.session_state.show_form:
+# ===== Add New Item Logic (FORM) =====
+# TODO check create crud
+
+if st.session_state.show_form:  # Add Item Form Logic
     with st.form("add_item_form"):
         st.write("Add Item Information")
         Item = st.text_input("Item Name")
@@ -86,8 +97,6 @@ if st.session_state.show_form:
         Definition = st.text_area("Definition")
         PictureLink = st.text_input("Picture Link")
         SunConditions = st.selectbox("Sun Conditions", options=api.get_sun_conditions())
-
-        # Every form must have a submit button.
         submitted = st.form_submit_button("Submit")
         if submitted:
             decoded_item_type = api.decode_type(TypeID)
@@ -106,14 +115,11 @@ if st.session_state.show_form:
             api._create(model_class=Item, data=item_data)
         st.write("This feature is coming soon!")
 
-with top_row[1]:  # middle column - empty or title
-    pass
+# ===== Edit Existing Item (Form) =====
+# TODO check update crud
 
-
-# ===== Add New Item (Form) =====
-with top_row[2]:  # right column - add button
-    if st.button("← Back"):
-        st.switch_page("edgewater.py")
+# ===== Delete Item (Button with Confirmation) =====
+# TODO check delete crud
 
 # ===== Item Table (DataFrame) =====
 
@@ -122,6 +128,3 @@ content_layout = st.columns([0.1, 30, 0.1])
 with content_layout[1]:  # middle column with the dataframe
     data = api.get_plant_list_display()
     st.dataframe(data, use_container_width=True)
-
-# ===== Edit Existing Item (Form) =====
-# ===== Delete Item (Button with Confirmation) =====
