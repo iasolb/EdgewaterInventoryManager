@@ -266,21 +266,42 @@ class EdgewaterAPI:
         """
         Joins Items, Inventory, ItemType tables to get full plant list
         """
-        from models import Item, Inventory, ItemType
+        from models import Item, Inventory, ItemType, Unit, UnitCategory
 
         try:
             items = self._get_all(model_class=Item)
             inv = self._get_all(model_class=Inventory)
+            units = self._get_all(model_class=Unit)
+            unit_categories = self._get_all(model_class=UnitCategory)
             item_types = self._get_all(model_class=ItemType)
-            combined1 = pd.merge(items, inv, on="ItemID")
-            combined2 = pd.merge(combined1, item_types, on="TypeID")
-            result = combined2.sort_values(
-                by="DateCounted",
-                ascending=False,
+
+            combined1 = pd.merge(
+                items, inv, on="ItemID", how="left", suffixes=("_item", "_inv")
             )
+            combined2 = pd.merge(
+                combined1, item_types, on="TypeID", how="left", suffixes=("", "_type")
+            )
+            combined3 = pd.merge(
+                combined2, units, on="UnitID", how="left", suffixes=("", "_unit")
+            )
+
+            combined4 = pd.merge(
+                combined3,
+                unit_categories,
+                on="UnitCategoryID",  # ✅ Join on the common column
+                how="left",
+            )
+
+            logger.warning("UnitCategory column not found in combined3")
+            combined4 = combined3
+
+            result = combined4.sort_values(by="DateCounted", ascending=False)
             return result
         except Exception as e:
             logger.error(f"Error retrieving Inventory List: {e}")
+            logger.error(
+                f"Available columns: {combined3.columns.tolist() if 'combined3' in locals() else 'N/A'}"
+            )
             return pd.DataFrame()
 
     def get_plant_list_display(self) -> pd.DataFrame:
@@ -288,24 +309,22 @@ class EdgewaterAPI:
             plant_list_full = self._get_plant_list_full()
             result = plant_list_full[
                 [
+                    "NumberOfUnits",
+                    "DateCounted",
                     "Item",
                     "Variety",
-                    "Color",
-                    "NumberOfUnits",
-                    "Type",
-                    "DateCounted",
-                    "LabelDescription",
-                    "ShouldStock",
-                    "Inactive",
-                    "ItemID",
-                    "TypeID",
-                    "InventoryID",
                     "Definition",
-                    "PictureLink",
-                    "UnitID",
+                    "Color",
+                    "Type",
+                    "SunConditions",
+                    "UnitSize",
+                    "UnitType",
+                    "Inactive",
+                    "ShouldStock",
+                    "LabelDescription",
                     "InventoryComments",
                 ]
-            ]  # Plant list display columns
+            ]
             return result
         except Exception as e:
             logger.error(f"Error Inventory Display Subset: {e}")
@@ -371,17 +390,23 @@ class EdgewaterAPI:
     """
 
     def _get_plantings_full(self) -> pd.DataFrame:
-        from models import UnitCategory, Planting, Item
+        from models import UnitCategory, Planting, Item, Unit
 
         try:
             plantings = self._get_all(model_class=Planting)
             items = self._get_all(model_class=Item)
+            units = self._get_all(model_class=Unit)
             unit_categories = self._get_all(model_class=UnitCategory)
-            combined1 = pd.merge(plantings, items, on="ItemID")
-            combined2 = pd.merge(
-                combined1, unit_categories, left_on="UnitID", right_on="UnitCategoryID"
+            combined1 = pd.merge(plantings, items, on="ItemID", how="left")
+            combined2 = pd.merge(combined1, units, on="UnitID", how="left")
+            combined3 = pd.merge(
+                combined2,
+                unit_categories,
+                left_on="UnitCategory",  # From Units table
+                right_on="UnitCategoryID",  # From UnitCategory table
+                how="left",
             )
-            result = combined2.sort_values(
+            result = combined3.sort_values(
                 by=["Inactive", "DatePlanted"],
                 ascending=False,
             )
@@ -456,7 +481,7 @@ class EdgewaterAPI:
             return pd.DataFrame(), pd.DataFrame()
 
     """
-    ORDER TRACKIGN WORKFLOWS
+    ORDER TRACKING WORKFLOWS
     """
 
     def _get_orders_full(self) -> pd.DataFrame:
@@ -579,18 +604,18 @@ class EdgewaterAPI:
     SALES & ANALYTICS WORKFLOWS
     """
 
-    def _get_sales_full(self) -> pd.DataFrame:
-        try:
-            pass
-        except Exception as e:
-            logger.error(f"Error retrieving Sales Data from db: {e}")
-            return pd.DataFrame()
+    # def _get_sales_full(self) -> pd.DataFrame:
+    #     try:
+    #         pass
+    #     except Exception as e:
+    #         logger.error(f"Error retrieving Sales Data from db: {e}")
+    #         return pd.DataFrame()
 
-    def get_sales_display(self) -> pd.DataFrame:
-        try:
-            pass
-        except Exception as e:
-            logger.error(
-                f"Error getting sales data subset: {e} (data operations error)"
-            )
-            return pd.DataFrame(), pd.DataFrame()
+    # def get_sales_display(self) -> pd.DataFrame:
+    #     try:
+    #         pass
+    #     except Exception as e:
+    #         logger.error(
+    #             f"Error getting sales data subset: {e} (data operations error)"
+    #         )
+    #         return pd.DataFrame(), pd.DataFrame()
