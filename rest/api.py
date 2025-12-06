@@ -313,7 +313,6 @@ class EdgewaterAPI:
                     "DateCounted",
                     "Item",
                     "Variety",
-                    "Definition",
                     "Color",
                     "Type",
                     "SunConditions",
@@ -402,8 +401,7 @@ class EdgewaterAPI:
             combined3 = pd.merge(
                 combined2,
                 unit_categories,
-                left_on="UnitCategory",  # From Units table
-                right_on="UnitCategoryID",  # From UnitCategory table
+                on="UnitCategoryID",
                 how="left",
             )
             result = combined3.sort_values(
@@ -426,9 +424,11 @@ class EdgewaterAPI:
                     "Variety",
                     "Color",
                     "DatePlanted",
-                    "UnitID",
                     "PlantingComments",
                     "ItemID",
+                    "UnitType",
+                    "UnitSize",
+                    "UnitCategory",
                 ]
             ]
             return plantings_display
@@ -471,7 +471,6 @@ class EdgewaterAPI:
                     "Color",
                     "Type",
                     "LabelDescription",
-                    "Definition",
                     "UnitPrice",
                 ]
             ]
