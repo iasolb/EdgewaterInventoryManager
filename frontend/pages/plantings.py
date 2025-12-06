@@ -16,7 +16,7 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-
+api.assign_planting_data()
 st.set_page_config(
     page_title="Plantings",
     page_icon="🌱",

@@ -16,7 +16,7 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-
+api.assign_orders_data()
 st.set_page_config(
     page_title="Order Tracking",
     page_icon="📊",

@@ -16,7 +16,7 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-
+api.assign_label_data()
 st.set_page_config(
     page_title="Label Generator",
     page_icon="🏷️",

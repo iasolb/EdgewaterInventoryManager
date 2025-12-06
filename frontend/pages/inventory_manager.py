@@ -44,7 +44,7 @@ st.markdown(
 api.set_background(
     api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
 )
-
+api.assign_inventory_data()
 # ==== Sidebar ==============
 st.sidebar.header("Edgewater Inventory Manager")
 options = st.container()
@@ -126,5 +126,5 @@ if st.session_state.show_form:  # Add Item Form Logic
 content_layout = st.columns([0.1, 30, 0.1])
 
 with content_layout[1]:  # middle column with the dataframe
-    data = api.get_plant_list_display()
+    data = api.get_inventory_display()
     st.dataframe(data, use_container_width=True)

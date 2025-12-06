@@ -40,7 +40,9 @@ class EdgewaterAPI:
     """Class to interact with Edgewater API"""
 
     def __init__(self, *args, **kwds):
-        # Initialize instance attributes inside __init__
+        """
+        Constructor for EdgewaterAPI
+        """
         self.SCRIPT_DIR = Path(__file__).parent
         self.PROJECT_ROOT = self.SCRIPT_DIR.parent
         self.LOGO_PATH = (
@@ -57,6 +59,11 @@ class EdgewaterAPI:
             / "image_assets"
             / "farmstand_background.png"
         )
+        self.inventory_data = None
+        self.plantings_data = None
+        self.label_data = None
+        self.orders_data = None
+        # self.sales_data = None # TODO ask about data collection for sales
 
     def _get_base64_image(self, image_path):
         """Convert image to base64 for CSS background"""
@@ -262,7 +269,7 @@ class EdgewaterAPI:
     MANAGE INVENTORY WORKFLOW METHODS
     """
 
-    def _get_plant_list_full(self) -> pd.DataFrame:
+    def _get_inventory_full(self) -> pd.DataFrame:
         """
         Joins Items, Inventory, ItemType tables to get full plant list
         """
@@ -304,9 +311,15 @@ class EdgewaterAPI:
             )
             return pd.DataFrame()
 
-    def get_plant_list_display(self) -> pd.DataFrame:
+    def assign_inventory_data(self) -> None:
         try:
-            plant_list_full = self._get_plant_list_full()
+            self.inventory_data = self._get_inventory_full()
+        except Exception as e:
+            logger.error(f"error assigning inventory data to api state var: {e}")
+
+    def get_inventory_display(self) -> pd.DataFrame:
+        try:
+            plant_list_full = self.inventory_data
             result = plant_list_full[
                 [
                     "NumberOfUnits",
@@ -389,7 +402,7 @@ class EdgewaterAPI:
     """
 
     def _get_plantings_full(self) -> pd.DataFrame:
-        from models import UnitCategory, Planting, Item, Unit
+        from models import Planting, UnitCategory, Item, Unit
 
         try:
             plantings = self._get_all(model_class=Planting)
@@ -413,9 +426,15 @@ class EdgewaterAPI:
             logger.error(f"Error retrieving Inventory List: {e}")
             return pd.DataFrame()
 
+    def assign_planting_data(self):
+        try:
+            self.plantings_data = self._get_plantings_full()
+        except Exception as e:
+            logger.error(f"error assigning planting data to api state var: {e}")
+
     def get_plantings_display(self) -> pd.DataFrame:
         try:
-            full = self._get_plantings_full()
+            full = self.plantings_data
             plantings_display = full[
                 [
                     "PlantingID",
@@ -454,11 +473,17 @@ class EdgewaterAPI:
             logger.error(f"Error retrieving Label Data from db: {e}")
             return pd.DataFrame()
 
+    def assign_label_data(self) -> None:
+        try:
+            self.label_data = self._get_label_data_full()
+        except Exception as e:
+            logger.error(f"error assigning label data to api state var: {e}")
+
     def get_label_display(
         self, item_id: Optional[int] = None
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         try:
-            label_data_full = self._get_label_data_full()
+            label_data_full = self.label_data
 
             if item_id:
                 label_data_full = label_data_full[label_data_full["ItemID"] == item_id]
@@ -492,32 +517,71 @@ class EdgewaterAPI:
             brokers = self._get_all(model_class=Broker)
             shippers = self._get_all(model_class=Shipper)
             suppliers = self._get_all(model_class=Supplier)
-            combined1 = pd.merge(orderitems, orders, on="OrderID", how="left")
-            combined2 = pd.merge(
-                combined1, orderitemstype, on="OrderItemTypeID", how="left"
+
+            combined1 = pd.merge(
+                orderitems,
+                orders,
+                on="OrderID",
+                how="left",
+                suffixes=("_item", "_order"),
             )
+
+            combined2 = pd.merge(
+                combined1,
+                orderitemstype,
+                on="OrderItemTypeID",
+                how="left",
+                suffixes=("", "_type"),
+            )
+
             combined3 = pd.merge(
                 combined2,
                 ordernote,
                 left_on="OrderNote",
                 right_on="OrderNoteID",
                 how="left",
+                suffixes=("", "_note"),
             )
-            combined4 = pd.merge(combined3, brokers, on="BrokerID", how="left")
-            combined5 = pd.merge(combined4, shippers, on="ShipperID", how="left")
-            combined6 = pd.merge(combined5, suppliers, on="SupplierID", how="left")
+
+            combined4 = pd.merge(
+                combined3, brokers, on="BrokerID", how="left", suffixes=("", "_broker")
+            )
+
+            combined5 = pd.merge(
+                combined4,
+                shippers,
+                on="ShipperID",
+                how="left",
+                suffixes=("", "_shipper"),
+            )
+
+            combined6 = pd.merge(
+                combined5,
+                suppliers,
+                on="SupplierID",
+                how="left",
+                suffixes=("", "_supplier"),
+            )
+
             result = combined6.sort_values(
                 by=["DatePlaced", "DateDue"],
                 ascending=False,
             )
             return result
+
         except Exception as e:
             logger.error(f"Error retrieving Orders Data from db: {e}")
             return pd.DataFrame()
 
+    def assign_orders_data(self) -> None:
+        try:
+            self.orders_data = self._get_orders_full()
+        except Exception as e:
+            logger.error(f"error assigning order data to api state var: {e}")
+
     def get_orders_display(self) -> pd.DataFrame:
         try:
-            full_orders = self._get_orders_full()
+            full_orders = self.orders_data
             result = full_orders[
                 [
                     "Supplier",
@@ -565,7 +629,7 @@ class EdgewaterAPI:
 
     def get_orders_summary(self) -> pd.DataFrame:
         try:
-            full_orders = self.get_orders_display()
+            full_orders = self.orders_data
             summary = (
                 full_orders.groupby("OrderID")
                 .agg(
