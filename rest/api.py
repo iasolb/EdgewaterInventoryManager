@@ -266,49 +266,57 @@ class EdgewaterAPI:
             raise
 
     """
+    MISC TOOLBOX (may become separate module)
+    """
+
+    def decode_type(self, type_name: str) -> int:
+        """
+        retrieves the numerical coding for typeID in items table
+        """
+        type_mapping = {
+            "Unassigned": 0,
+            "Soil": 3,
+            "Labels and Tags": 4,
+            "Annual": 6,
+            "Perennial": 7,
+            "Vegetable": 8,
+            "Hard Good": 11,
+            "Fruit": 12,
+            "Herb": 13,
+        }
+        return type_mapping.get(type_name, 0)  # Default to 0 if not found
+
+    def get_sun_conditions(self) -> List:
+        """
+        Get list of sun conditions for dropdowns
+        """
+        return self._get_all(model_class=Item).SunConditions.unique().tolist()
+
+    def get_item_types(self):
+        """
+        Get list of item types for dropdowns
+        """
+        from models import ItemType
+
+        return pd.DataFrame(self._get_all(model_class=ItemType))
+
+    """
     MANAGE INVENTORY WORKFLOW METHODS
     """
 
+    # GET
     def _get_inventory_full(self) -> pd.DataFrame:
         """
-        Joins Items, Inventory, ItemType tables to get full plant list
+        Get full inventory data from SQL view
         """
-        from models import Item, Inventory, ItemType, Unit, UnitCategory
+        from models import InventoryFullView
 
         try:
-            items = self._get_all(model_class=Item)
-            inv = self._get_all(model_class=Inventory)
-            units = self._get_all(model_class=Unit)
-            unit_categories = self._get_all(model_class=UnitCategory)
-            item_types = self._get_all(model_class=ItemType)
-
-            combined1 = pd.merge(
-                items, inv, on="ItemID", how="left", suffixes=("_item", "_inv")
-            )
-            combined2 = pd.merge(
-                combined1, item_types, on="TypeID", how="left", suffixes=("", "_type")
-            )
-            combined3 = pd.merge(
-                combined2, units, on="UnitID", how="left", suffixes=("", "_unit")
-            )
-
-            combined4 = pd.merge(
-                combined3,
-                unit_categories,
-                on="UnitCategoryID",  # ✅ Join on the common column
-                how="left",
-            )
-
-            logger.warning("UnitCategory column not found in combined3")
-            combined4 = combined3
-
-            result = combined4.sort_values(by="DateCounted", ascending=False)
+            result = self._get_all(model_class=InventoryFullView)
+            result = result.sort_values(by="DateCounted", ascending=False)
             return result
         except Exception as e:
             logger.error(f"Error retrieving Inventory List: {e}")
-            logger.error(
-                f"Available columns: {combined3.columns.tolist() if 'combined3' in locals() else 'N/A'}"
-            )
             return pd.DataFrame()
 
     def assign_inventory_data(self) -> None:
@@ -342,48 +350,19 @@ class EdgewaterAPI:
             logger.error(f"Error Inventory Display Subset: {e}")
             return pd.DataFrame()
 
-    def decode_type(self, type_name: str) -> int:
-        """
-        retrieves the numerical coding for typeID in items table
-        """
-        type_mapping = {
-            "Unassigned": 0,
-            "Soil": 3,
-            "Labels and Tags": 4,
-            "Annual": 6,
-            "Perennial": 7,
-            "Vegetable": 8,
-            "Hard Good": 11,
-            "Fruit": 12,
-            "Herb": 13,
-        }
-        return type_mapping.get(type_name, 0)  # Default to 0 if not found
-
-    def get_sun_conditions(self) -> List:
-        """
-        Get list of sun conditions for dropdowns
-        """
-        return self._get_all(model_class=Item).SunConditions.unique().tolist()
-
-    def get_item_types(self):
-        """
-        Get list of item types for dropdowns
-        """
-        from models import ItemType
-
-        return pd.DataFrame(self._get_all(model_class=ItemType))
-
-    def add_to_plant_list(self, plant_data: Dict[str, Any]):
+    # POST
+    def inventory_add(self, entry_data: Dict[str, Any]):
         from models import Item
 
         try:
             last_id = self._get_all(model_class=Item)["ItemID"].max()
-            plant_data["ItemID"] = last_id + 1
-            self._create(model_class=Item, data=plant_data)
+            entry_data["ItemID"] = last_id + 1
+            self._create(model_class=Item, data=entry_data)
         except Exception as e:
             print(f"Error adding to plant list: {e}")
 
-    def delete_item_entry(self, plant_id: int):
+    # DELETE
+    def inventory_remove(self, target_id: int):
         from models import Item, Inventory
 
         try:
@@ -391,7 +370,8 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error deleting item entry: {e}")
 
-    def update_item_info(self, plant_id: int, updates: Dict[str, Any]):
+    # UPDATE
+    def inventory_update(self, target_id: int, update_data: Dict[str, Any]):
         try:
             pass
         except Exception as e:
@@ -401,29 +381,23 @@ class EdgewaterAPI:
     PLANTINGS WORKFLOW METHODS
     """
 
+    # GET
     def _get_plantings_full(self) -> pd.DataFrame:
-        from models import Planting, UnitCategory, Item, Unit
+        """
+        Get full plantings data from SQL view
+        """
+        from models import PlantingsFullView
 
         try:
-            plantings = self._get_all(model_class=Planting)
-            items = self._get_all(model_class=Item)
-            units = self._get_all(model_class=Unit)
-            unit_categories = self._get_all(model_class=UnitCategory)
-            combined1 = pd.merge(plantings, items, on="ItemID", how="left")
-            combined2 = pd.merge(combined1, units, on="UnitID", how="left")
-            combined3 = pd.merge(
-                combined2,
-                unit_categories,
-                on="UnitCategoryID",
-                how="left",
-            )
-            result = combined3.sort_values(
-                by=["Inactive", "DatePlanted"],
+            result = self._get_all(model_class=PlantingsFullView)
+            result = result.sort_values(
+                by=["DatePlanted", "PlantingID"],
                 ascending=False,
             )
+
             return result
         except Exception as e:
-            logger.error(f"Error retrieving Inventory List: {e}")
+            logger.error(f"Error retrieving Plantings List: {e}")
             return pd.DataFrame()
 
     def assign_planting_data(self):
@@ -432,9 +406,10 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"error assigning planting data to api state var: {e}")
 
-    def get_plantings_display(self) -> pd.DataFrame:
+    def get_plantings_display(self, *filters: Dict[str, any]) -> pd.DataFrame:
         try:
             full = self.plantings_data
+
             plantings_display = full[
                 [
                     "PlantingID",
@@ -450,27 +425,55 @@ class EdgewaterAPI:
                     "UnitCategory",
                 ]
             ]
+            # TODO ADD FILTER LOGIC
             return plantings_display
         except Exception as e:
             logger.error(f"error retriving plantings subset: {e}")
             return pd.DataFrame()
 
+    # POST
+    def plantings_add(self, entry_data: Dict[str, Any]):
+        from models import Planting
+
+        try:
+            last_id = self._get_all(model_class=Planting)["PlantingID"].max()
+            entry_data["PlantingID"] = last_id + 1
+            self._create(model_class=Item, data=entry_data)
+        except Exception as e:
+            print(f"Error adding to plant list: {e}")
+
+    # DELETE
+    def plantings_remove(self, target_id: int):
+        from models import Planting
+
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error deleting item entry: {e}")
+
+    # UPDATE
+    def plantings_update(self, target_id: int, update_data: Dict[str, Any]):
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error updating item info: {e}")
+
     """
     LABEL GENERATING WORKFLOW METHODS
     """
 
+    # GET
     def _get_label_data_full(self) -> pd.DataFrame:
-        from models import Item, ItemType, Price
+        """
+        Get full label data from SQL view
+        """
+        from models import LabelDataFullView
 
         try:
-            items = self._get_all(model_class=Item)
-            prices = self._get_all(model_class=Price)
-            item_types = self._get_all(model_class=ItemType)
-            combined1 = pd.merge(items, prices, on="ItemID", how="left")
-            results = pd.merge(combined1, item_types, on="TypeID", how="left")
-            return results
+            result = self._get_all(model_class=LabelDataFullView)
+            return result
         except Exception as e:
-            logger.error(f"Error retrieving Label Data from db: {e}")
+            logger.error(f"Error retrieving Label Data: {e}")
             return pd.DataFrame()
 
     def assign_label_data(self) -> None:
@@ -487,8 +490,6 @@ class EdgewaterAPI:
 
             if item_id:
                 label_data_full = label_data_full[label_data_full["ItemID"] == item_id]
-
-            sun_conditions = label_data_full["SunConditions"]
             label_data = label_data_full[
                 [
                     "Item",
@@ -497,9 +498,10 @@ class EdgewaterAPI:
                     "Type",
                     "LabelDescription",
                     "UnitPrice",
+                    "SunConditions",
                 ]
             ]
-            return label_data, sun_conditions
+            return label_data
         except Exception as e:
             logger.error(f"Error getting label subset: {e} (data operations error)")
             return pd.DataFrame(), pd.DataFrame()
@@ -508,69 +510,22 @@ class EdgewaterAPI:
     ORDER TRACKING WORKFLOWS
     """
 
+    # GET
     def _get_orders_full(self) -> pd.DataFrame:
+        """
+        Get full orders data from SQL view
+        """
+        from models import OrdersFullView
+
         try:
-            orderitems = self._get_all(model_class=OrderItem)
-            orders = self._get_all(model_class=Order)
-            orderitemstype = self._get_all(model_class=OrderItemType)
-            ordernote = self._get_all(model_class=OrderNote)
-            brokers = self._get_all(model_class=Broker)
-            shippers = self._get_all(model_class=Shipper)
-            suppliers = self._get_all(model_class=Supplier)
-
-            combined1 = pd.merge(
-                orderitems,
-                orders,
-                on="OrderID",
-                how="left",
-                suffixes=("_item", "_order"),
-            )
-
-            combined2 = pd.merge(
-                combined1,
-                orderitemstype,
-                on="OrderItemTypeID",
-                how="left",
-                suffixes=("", "_type"),
-            )
-
-            combined3 = pd.merge(
-                combined2,
-                ordernote,
-                left_on="OrderNote",
-                right_on="OrderNoteID",
-                how="left",
-                suffixes=("", "_note"),
-            )
-
-            combined4 = pd.merge(
-                combined3, brokers, on="BrokerID", how="left", suffixes=("", "_broker")
-            )
-
-            combined5 = pd.merge(
-                combined4,
-                shippers,
-                on="ShipperID",
-                how="left",
-                suffixes=("", "_shipper"),
-            )
-
-            combined6 = pd.merge(
-                combined5,
-                suppliers,
-                on="SupplierID",
-                how="left",
-                suffixes=("", "_supplier"),
-            )
-
-            result = combined6.sort_values(
+            result = self._get_all(model_class=OrdersFullView)
+            result = result.sort_values(
                 by=["DatePlaced", "DateDue"],
                 ascending=False,
             )
             return result
-
         except Exception as e:
-            logger.error(f"Error retrieving Orders Data from db: {e}")
+            logger.error(f"Error retrieving Orders Data: {e}")
             return pd.DataFrame()
 
     def assign_orders_data(self) -> None:
@@ -579,7 +534,7 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"error assigning order data to api state var: {e}")
 
-    def get_orders_display(self) -> pd.DataFrame:
+    def get_orders_display(self, *filters: Dict[str, any]) -> pd.DataFrame:
         try:
             full_orders = self.orders_data
             result = full_orders[
@@ -597,9 +552,10 @@ class EdgewaterAPI:
                     "Unit",
                     "NumberOfUnits",
                     "UnitPrice",
-                    "OrderNote_x",
-                    "OrderNote_y",
-                    "OrderComments_x",
+                    "OrderNoteCode",
+                    "OrderNoteDecode",
+                    "OrderItemComments",
+                    "OrderComments",
                     "Leftover",
                     "OrderItemID",
                     "OrderID",
@@ -613,21 +569,15 @@ class EdgewaterAPI:
                     "SupplierComments",
                 ]
             ]
-            result = result.rename(
-                columns={
-                    "OrderNote_x": "OrderNoteCode",
-                    "OrderNote_y": "OrderNoteDecode",
-                    "OrderComments_x": "OrderComments",
-                }
-            )
+            # TODO ADD FILTER LOGIC
             return result
         except Exception as e:
             logger.error(
                 f"Error getting Order data subset: {e} (data operations error)"
             )
-            return pd.DataFrame(), pd.DataFrame()
+            return pd.DataFrame()
 
-    def get_orders_summary(self) -> pd.DataFrame:
+    def get_orders_summary(self) -> pd.DataFrame:  # TODO FIX THIS FUNCTION !!!
         try:
             full_orders = self.orders_data
             summary = (
@@ -662,6 +612,35 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error getting orders summary: {e}")
             return pd.DataFrame()
+
+    # POST
+    def orders_add(self, entry_data: Dict[str, any]) -> None:
+        from models import Order
+
+        try:
+            last_id = self._get_all(model_class=Order)["OrderID"].max()
+            entry_data["OrderID"] = last_id + 1
+            self._create(model_class=Item, data=entry_data)
+        except Exception as e:
+            print(f"Error adding to plant list: {e}")
+
+    # DELETE
+    def orders_remove(self, target_id: int):
+        from models import Order
+
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error deleting item entry: {e}")
+
+    # UPDATE
+    def orders_update(self, target_id: int, update_data: Dict[str, Any]):
+        from models import Order
+
+        try:
+            pass
+        except Exception as e:
+            logger.error(f"Error updating item info: {e}")
 
     """
     SALES & ANALYTICS WORKFLOWS

@@ -303,3 +303,177 @@ class OrderItem(Base):
     item = relationship("Item", back_populates="order_items")
     order_item_type = relationship("OrderItemType", back_populates="order_items")
     order_note = relationship("OrderNote", back_populates="order_items")
+
+
+class InventoryFullView(Base):
+    """v_inventory_full - SQL View for complete inventory data"""
+
+    __tablename__ = "v_inventory_full"
+
+    # Primary key (required for SQLAlchemy)
+    InventoryID = Column(Integer, primary_key=True)
+
+    # Inventory fields
+    DateCounted = Column(DateTime)
+    NumberOfUnits = Column(Text)
+    InventoryComments = Column(Text)
+
+    # Item fields
+    ItemID = Column(Integer)
+    Item = Column(Text)
+    Variety = Column(Text)
+    Color = Column(Text)
+    Inactive = Column(Boolean)
+    ShouldStock = Column(Boolean)
+    LabelDescription = Column(Text)
+    Definition = Column(Text)
+    PictureLink = Column(Text)
+    SunConditions = Column(Text)
+    TypeID = Column(Integer)
+
+    # ItemType fields
+    Type = Column(Text)
+
+    # Unit fields
+    UnitID = Column(Integer)
+    UnitType = Column(Text)
+    UnitSize = Column(Text)
+    UnitCategoryID = Column(Integer)
+
+    # UnitCategory fields
+    UnitCategory = Column(Text)
+
+
+class PlantingsFullView(Base):
+    """v_plantings_full - SQL View for complete plantings data"""
+
+    __tablename__ = "v_plantings_full"
+
+    # Primary key
+    PlantingID = Column(Integer, primary_key=True)
+
+    # Planting fields
+    DatePlanted = Column(DateTime)
+    NumberOfUnits = Column(Text)
+    PlantingComments = Column(Text)
+
+    # Item fields
+    ItemID = Column(Integer)
+    Item = Column(Text)
+    Variety = Column(Text)
+    Color = Column(Text)
+    Inactive = Column(Boolean)
+    SunConditions = Column(Text)
+    TypeID = Column(Integer)
+
+    # Unit fields
+    UnitID = Column(Integer)
+    UnitType = Column(Text)
+    UnitSize = Column(Text)
+    UnitCategoryID = Column(Integer)
+
+    # UnitCategory fields
+    UnitCategory = Column(Text)
+
+
+class LabelDataFullView(Base):
+    """v_label_data_full - SQL View for label data"""
+
+    __tablename__ = "v_label_data_full"
+
+    # Primary key
+    ItemID = Column(Integer, primary_key=True)
+
+    # Item fields
+    Item = Column(Text)
+    Variety = Column(Text)
+    Color = Column(Text)
+    SunConditions = Column(Text)
+    LabelDescription = Column(Text)
+    Definition = Column(Text)
+    TypeID = Column(Integer)
+
+    # ItemType fields
+    Type = Column(Text)
+
+    # Price fields
+    PriceID = Column(Integer)
+    UnitID = Column(Integer)
+    UnitPrice = Column(Float)
+    Year = Column(Text)
+
+
+class OrdersFullView(Base):
+    """v_orders_full - SQL View for complete orders data"""
+
+    __tablename__ = "v_orders_full"
+
+    # Primary key
+    OrderItemID = Column(Integer, primary_key=True)
+
+    # OrderItem fields
+    ItemCode = Column(Text)
+    Unit = Column(Text)
+    UnitPrice = Column(Float)
+    NumberOfUnits = Column(Text)
+    Received = Column(Boolean)
+    OrderNoteCode = Column(Integer)
+    OrderItemComments = Column(Text)
+    Leftover = Column(Text)
+    ToOrder = Column(Text)
+    ItemID = Column(Integer)
+
+    # Order fields
+    OrderID = Column(Integer)
+    DatePlaced = Column(DateTime)
+    DateReceived = Column(DateTime)
+    OrderNumber = Column(Text)
+    TrackingNumber = Column(Text)
+    OrderComments = Column(Text)
+    GrowingSeason = Column(Text)
+    GrowingSeasonID = Column(Integer)
+    DateDue = Column(DateTime)
+    TotalCost = Column(Float)
+
+    # OrderItemType fields
+    OrderItemType = Column(Text)
+    OrderItemTypeID = Column(Integer)
+
+    # OrderNote fields
+    OrderNoteID = Column(Integer)
+    OrderNoteDecode = Column(Text)
+
+    # Broker fields
+    BrokerID = Column(Integer)
+    Broker = Column(Text)
+    BrokerComments = Column(Text)
+
+    # Shipper fields
+    ShipperID = Column(Integer)
+    Shipper = Column(Text)
+    ShipperAccountNumber = Column(Text)
+    ShipperContactPerson = Column(Text)
+    ShipperAddress1 = Column(Text)
+    ShipperAddress2 = Column(Text)
+    ShipperCity = Column(Text)
+    ShipperState = Column(Text)
+    ShipperZip = Column(Text)
+    ShipperPhone = Column(Text)
+    ShipperComments = Column(Text)
+
+    # Supplier fields
+    SupplierID = Column(Integer)
+    Supplier = Column(Text)
+    SupplierAccountNumber = Column(Text)
+    SupplierPhone = Column(Text)
+    SupplierFax = Column(Text)
+    WebSite = Column(Text)
+    Email = Column(Text)
+    SupplierContactPerson = Column(Text)
+    SupplierAddress1 = Column(Text)
+    SupplierAddress2 = Column(Text)
+    SupplierCity = Column(Text)
+    SupplierState = Column(Text)
+    SupplierZip = Column(Text)
+    SupplierComments = Column(Text)
+    SupplierType = Column(Text)
