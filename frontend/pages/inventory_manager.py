@@ -44,7 +44,7 @@ st.markdown(
 api.set_background(
     api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
 )
-api.assign_inventory_data()
+api.reset_cache("inventory_view_cache", api._get_inventory_view_full)
 # ==== Sidebar ==============
 st.sidebar.header("Edgewater Inventory Manager")
 options = st.container()
@@ -75,10 +75,11 @@ with top_row[0]:  # left column - back button
         st.switch_page("edgewater.py")
 
 with top_row[1]:  # middle column - empty or title
-    pass
+    if st.button("Edit Existing Inventory", disabled=False):
+        st.session_state.show_form = True
 
 with top_row[2]:  # Add Item Button
-    if st.button("Add New Item", disabled=False):
+    if st.button("Add New Inventory", disabled=False):
         st.session_state.show_form = True
 
 # ===== Add New Item Logic (FORM) =====
@@ -86,7 +87,7 @@ with top_row[2]:  # Add Item Button
 
 if st.session_state.show_form:  # Add Item Form Logic
     with st.form("add_item_form"):
-        st.write("Add Item Information")
+        st.write("Add Inventory Information")
         Item = st.text_input("Item Name")
         Variety = st.text_input("Variety")
         Inactive = st.checkbox("Inactive", value=False)
@@ -126,5 +127,5 @@ if st.session_state.show_form:  # Add Item Form Logic
 content_layout = st.columns([0.1, 30, 0.1])
 
 with content_layout[1]:  # middle column with the dataframe
-    data = api.get_inventory_display()
+    data = api.get_inventory_view_display()
     st.dataframe(data, use_container_width=True)

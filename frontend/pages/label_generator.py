@@ -16,7 +16,7 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-api.assign_label_data()
+
 st.set_page_config(
     page_title="Label Generator",
     page_icon="🏷️",
@@ -27,6 +27,7 @@ st.set_page_config(
 api.set_background(
     api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
 )
+api.reset_cache("label_view_cache", api._get_label_view_full)
 st.title("Label Generator")
 st.write("This feature is coming soon!")
 btn_col1 = st.columns(1)[0]
