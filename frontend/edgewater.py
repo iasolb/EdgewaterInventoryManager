@@ -47,7 +47,16 @@ with col2:
     except:
         st.caption("(Logo image not found - add your logo to image_assets/)")
 
-btn_col1, btn_col2, btn_col3, btn_col4, btn_col5 = st.columns([2, 2, 2, 2, 2])
+btn_col1, btn_col2, btn_col3, btn_col4, btn_col5, btn_col6 = st.columns(
+    [
+        2,
+        2,
+        2,
+        2,
+        2,
+        2,
+    ]
+)
 with btn_col1:
     if st.button("Inventory Manager", disabled=False):
         st.switch_page("pages/inventory_manager.py")
@@ -61,8 +70,8 @@ with btn_col4:
     if st.button("Order Tracking", disabled=False):
         st.switch_page("pages/order_tracking.py")
 with btn_col5:
-    if st.button("Sales and Analytics", disabled=False):
-        st.switch_page("pages/sales_and_analytics.py")
+    if st.button("Admin View (All Tables)", disabled=False):
+        st.switch_page("pages/admin_landing.py")
 
 st.markdown("---")
 st.markdown(

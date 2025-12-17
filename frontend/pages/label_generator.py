@@ -40,5 +40,5 @@ content_layout = st.columns([0.1, 30, 0.1])
 
 with content_layout[1]:  # middle column with the dataframe
     label_data = api.get_label_display()
-    st.dataframe(label_data, use_container_width=True)
-    st.dataframe(label_data["SunConditions"], use_container_width=True)
+    st.data_editor(label_data, use_container_width=True)
+    st.data_editor(label_data["SunConditions"], use_container_width=True)

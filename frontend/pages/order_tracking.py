@@ -43,4 +43,4 @@ with content_layout[1]:  # middle column with the dataframe
     st.dataframe(summary, use_container_width=True)
     st.write("Expanded Orders (each item)")
     data = api.get_orders_display()
-    st.dataframe(data, use_container_width=True)
+    st.data_editor(data, use_container_width=True)

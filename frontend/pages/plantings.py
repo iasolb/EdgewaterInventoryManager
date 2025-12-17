@@ -40,4 +40,4 @@ content_layout = st.columns([0.1, 30, 0.1])
 
 with content_layout[1]:  # middle column with the dataframe
     data = api.get_plantings_display()
-    st.dataframe(data, use_container_width=True)
+    st.data_editor(data, use_container_width=True)
