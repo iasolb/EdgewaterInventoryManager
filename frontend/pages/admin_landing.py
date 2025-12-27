@@ -9,20 +9,18 @@ st.set_page_config(
 
 # Top navigation row
 top_row = st.columns([1, 2, 1])
-with top_row[0]:  # left column - back button
+with top_row[0]:
     if st.button("← Back"):
         st.switch_page("edgewater.py")
-with top_row[1]:  # middle column - title
+with top_row[1]:
     pass
-with top_row[2]:  # right column - empty for now
+with top_row[2]:
     st.markdown("## Admin View")
 
 st.divider()
 
-# Header
 st.write("### Select Table to View/Edit")
 
-# Button grid - 4 columns, 4 rows
 row1 = st.columns(4)
 with row1[0]:
     if st.button("Items", use_container_width=True):
@@ -74,7 +72,7 @@ with row4[1]:
         st.switch_page("pages/unit.py")
 with row4[2]:
     if st.button("Unit Categories", use_container_width=True):
-        st.switch_page("pages/unit_categories.py")
+        st.switch_page("pages/unit_category.py")
 with row4[3]:
     if st.button("Brokers", use_container_width=True):
         st.switch_page("pages/broker.py")

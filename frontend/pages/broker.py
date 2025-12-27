@@ -1,4 +1,14 @@
 import streamlit as st
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
+from rest.api import EdgewaterAPI
+
+api = EdgewaterAPI()
+api.reset_cache("growing_season_cache", api.get_growing_season_full)
+
 
 st.set_page_config(
     page_title="Broker Table Administration View",
@@ -19,9 +29,18 @@ with top_row[1]:
 
 with top_row[2]:
     pass
-
+st.divider()
 st.title("Brokers Administration Table")
+st.divider()
 st.write("Coming soon...")
 st.write(
     "This page will allow administrators to manage brokers table in the database directly."
 )
+
+content_row = st.columns(3)
+with content_row[0]:
+    pass
+with content_row[1]:
+    st.data_editor(api.broker_cache, use_container_width=True)
+with content_row[2]:
+    pass

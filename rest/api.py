@@ -639,6 +639,20 @@ class EdgewaterAPI:
 
     """ Inventory """
 
+    def get_inventory_full(self) -> pd.DataFrame:
+        """
+        Get full inventory data from SQL view
+        """
+        from models import Inventory
+
+        try:
+            result = self._get_all(model_class=Inventory)
+            result = result.sort_values(by="DateCounted", ascending=False)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Inventory List: {e}")
+            return pd.DataFrame()
+
     def table_add_inventory(
         self,
         ItemID: int,
@@ -665,6 +679,19 @@ class EdgewaterAPI:
 
     """ Brokers """
 
+    def get_broker_full(self) -> pd.DataFrame:
+        """
+        Get full brokers data
+        """
+        from models import Broker
+
+        try:
+            result = self._get_all(model_class=Broker)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Brokers List: {e}")
+            return pd.DataFrame()
+
     def table_add_broker(
         self, BrokerName: str, BrokerComments: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -683,6 +710,19 @@ class EdgewaterAPI:
             raise
 
     """ GrowingSeason """
+
+    def get_growing_season_full(self) -> pd.DataFrame:
+        """
+        Get full growing season data
+        """
+        from models import GrowingSeason
+
+        try:
+            result = self._get_all(model_class=GrowingSeason)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Growing Season List: {e}")
+            return pd.DataFrame()
 
     def table_add_growing_season(
         self,
@@ -706,6 +746,19 @@ class EdgewaterAPI:
             raise
 
     """ Items """
+
+    def get_item_full(self) -> pd.DataFrame:
+        """
+        Get full items data
+        """
+        from models import Item
+
+        try:
+            result = self._get_all(model_class=Item)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Items List: {e}")
+            return pd.DataFrame()
 
     def table_add_item(
         self,
@@ -746,6 +799,19 @@ class EdgewaterAPI:
 
     """ ItemType """
 
+    def get_item_type_full(self) -> pd.DataFrame:
+        """
+        Get full item type data
+        """
+        from models import ItemType
+
+        try:
+            result = self._get_all(model_class=ItemType)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Item Type List: {e}")
+            return pd.DataFrame()
+
     def table_add_item_type(self, Type: str) -> Dict[str, Any]:
         """Add new item type record"""
         try:
@@ -761,6 +827,19 @@ class EdgewaterAPI:
             raise
 
     """ Orders """
+
+    def get_order_full(self) -> pd.DataFrame:
+        """
+        Get full orders data
+        """
+        from models import Order
+
+        try:
+            result = self._get_all(model_class=Order)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Orders List: {e}")
+            return pd.DataFrame()
 
     def table_add_order(
         self,
@@ -803,6 +882,19 @@ class EdgewaterAPI:
 
     """ OrderItems """
 
+    def get_order_item_full(self) -> pd.DataFrame:
+        """
+        Get full order items data
+        """
+        from models import OrderItem
+
+        try:
+            result = self._get_all(model_class=OrderItem)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Items List: {e}")
+            return pd.DataFrame()
+
     def table_add_order_item(
         self,
         OrderID: int,
@@ -844,6 +936,19 @@ class EdgewaterAPI:
 
     """ OrderItemTypes """
 
+    def get_order_item_type_full(self) -> pd.DataFrame:
+        """
+        Get full order item type data
+        """
+        from models import OrderItemType
+
+        try:
+            result = self._get_all(model_class=OrderItemType)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Item Type List: {e}")
+            return pd.DataFrame()
+
     def table_add_order_item_type(self, OrderItemType: str) -> Dict[str, Any]:
         """Add new order item type record"""
         try:
@@ -860,6 +965,19 @@ class EdgewaterAPI:
 
     """ OrderNotes """
 
+    def get_order_note_full(self) -> pd.DataFrame:
+        """
+        Get full order notes data
+        """
+        from models import OrderNote
+
+        try:
+            result = self._get_all(model_class=OrderNote)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Notes List: {e}")
+            return pd.DataFrame()
+
     def table_add_order_note(self, OrderNote: str) -> Dict[str, Any]:
         """Add new order note record"""
         try:
@@ -875,6 +993,19 @@ class EdgewaterAPI:
             raise
 
     """ Pitch """
+
+    def get_pitch_full(self) -> pd.DataFrame:
+        """
+        Get full pitch data
+        """
+        from models import Pitch
+
+        try:
+            result = self._get_all(model_class=Pitch)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Pitch List: {e}")
+            return pd.DataFrame()
 
     def table_add_pitch(
         self,
@@ -905,6 +1036,19 @@ class EdgewaterAPI:
 
     """ Plantings """
 
+    def get_planting_full(self) -> pd.DataFrame:
+        """
+        Get full plantings data
+        """
+        from models import Planting
+
+        try:
+            result = self._get_all(model_class=Planting)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Plantings List: {e}")
+            return pd.DataFrame()
+
     def table_add_planting(
         self,
         ItemID: int,
@@ -932,6 +1076,19 @@ class EdgewaterAPI:
 
     """ Prices """
 
+    def get_price_full(self) -> pd.DataFrame:
+        """
+        Get full prices data
+        """
+        from models import Price
+
+        try:
+            result = self._get_all(model_class=Price)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Prices List: {e}")
+            return pd.DataFrame()
+
     def table_add_price(
         self,
         ItemID: int,
@@ -956,6 +1113,19 @@ class EdgewaterAPI:
             raise
 
     """ Shippers """
+
+    def get_shipper_full(self) -> pd.DataFrame:
+        """
+        Get full shippers data
+        """
+        from models import Shipper
+
+        try:
+            result = self._get_all(model_class=Shipper)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Shippers List: {e}")
+            return pd.DataFrame()
 
     def table_add_shipper(
         self,
@@ -993,6 +1163,19 @@ class EdgewaterAPI:
             raise
 
     """ Suppliers """
+
+    def get_supplier_full(self) -> pd.DataFrame:
+        """
+        Get full suppliers data
+        """
+        from models import Supplier
+
+        try:
+            result = self._get_all(model_class=Supplier)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Suppliers List: {e}")
+            return pd.DataFrame()
 
     def table_add_supplier(
         self,
@@ -1039,6 +1222,19 @@ class EdgewaterAPI:
 
     """ UnitCategory """
 
+    def get_unit_category_full(self) -> pd.DataFrame:
+        """
+        Get full unit category data
+        """
+        from models import UnitCategory
+
+        try:
+            result = self._get_all(model_class=UnitCategory)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Unit Category List: {e}")
+            return pd.DataFrame()
+
     def table_add_unit_category(self, UnitCategory: str) -> Dict[str, Any]:
         """Add new unit category record"""
         try:
@@ -1054,6 +1250,19 @@ class EdgewaterAPI:
             raise
 
     """ Units """
+
+    def get_unit_full(self) -> pd.DataFrame:
+        """
+        Get full units data
+        """
+        from models import Unit
+
+        try:
+            result = self._get_all(model_class=Unit)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Units List: {e}")
+            return pd.DataFrame()
 
     def table_add_unit(
         self,
