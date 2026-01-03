@@ -33,10 +33,6 @@ st.write("Coming soon...")
 st.write(
     "This page will allow administrators to manage items table in the database directly."
 )
-content_row = st.columns(3)
+content_row = st.columns(1)
 with content_row[0]:
-    pass
-with content_row[1]:
-    st.data_editor(api.item_cache, use_container_width=False)
-with content_row[2]:
-    pass
+    st.data_editor(api.item_cache, width=1400, on_change=None)

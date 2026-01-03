@@ -38,6 +38,6 @@ content_row = st.columns(3)
 with content_row[0]:
     pass
 with content_row[1]:
-    st.data_editor(api.item_type_cache, use_container_width=False)
+    st.data_editor(api.item_type_cache, width=1400, on_change=None)
 with content_row[2]:
     pass
