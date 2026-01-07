@@ -12,10 +12,9 @@ from rest.api import EdgewaterAPI
 from models import Item as IM
 from payloads import ItemPayload
 
-# Initialize API
 api = EdgewaterAPI()
 
-# Page config
+
 st.set_page_config(
     page_title="Items Table Administration",
     page_icon="🌿",
@@ -23,19 +22,16 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Load page-specific caches
 api.reset_cache("item_cache", api.get_item_full)
 api.reset_cache("item_type_cache", api.get_item_type_full)
 
 # ==================== SESSION STATE ====================
-# Initialize session state
 if "show_add_form" not in st.session_state:
     st.session_state.show_add_form = False
 if "edit_mode" not in st.session_state:
     st.session_state.edit_mode = False
 
 
-# Helper functions
 def refresh_cache():
     """Refresh the item cache after mutations"""
     with st.spinner("Refreshing data..."):
@@ -108,7 +104,6 @@ def create_item_from_form(form_data: dict) -> Optional[dict]:
 def update_item(item_id: int, updates: dict) -> bool:
     """Update an item using the API's generic_update method"""
     try:
-        # Allowed fields for Item table (no view-only fields)
         allowed_fields = {
             "Item",
             "Variety",
@@ -131,7 +126,6 @@ def update_item(item_id: int, updates: dict) -> bool:
             allowed_fields=allowed_fields,
         )
 
-        # Verify the write worked
         if result:
             logger.info(f"✓ Updated Item {item_id}: {updates}")
 
@@ -145,7 +139,7 @@ def update_item(item_id: int, updates: dict) -> bool:
 def delete_item(item_id: int) -> bool:
     """Delete an item using the API's _delete method"""
     try:
-        return api._delete(Item, "ItemID", item_id)
+        return api._delete(IM, "ItemID", item_id)
     except Exception as e:
         st.error(f"❌ Error deleting item {item_id}: {e}")
         return False
@@ -159,7 +153,7 @@ with top_row[0]:
         st.switch_page("pages/admin_landing.py")
 
 with top_row[1]:
-    st.title("📦 Items Administration")
+    st.title("📦 Items Table Administration")
 
 with top_row[2]:
     if st.button("🔄 Refresh", use_container_width=True):
@@ -172,7 +166,6 @@ st.divider()
 with st.expander("➕ Add New Item", expanded=st.session_state.show_add_form):
     st.write("### Create New Item")
 
-    # Use cached item types (already loaded by ensure_caches_loaded)
     item_types = api.item_type_cache.set_index("TypeID")["Type"].to_dict()
 
     with st.form("add_item_form", clear_on_submit=True):
@@ -250,7 +243,6 @@ with filter_col1:
     )
 
 with filter_col2:
-    # Use cached item types (already loaded)
     type_filter = st.multiselect(
         "Filter by Type",
         options=api.item_type_cache["Type"].unique().tolist(),
@@ -282,21 +274,17 @@ if search_term:
     )
     filtered_df = filtered_df[mask]
 
-# Type filter
 if type_filter:
-    # Map Type names to TypeIDs for filtering (use cached data)
     type_ids = api.item_type_cache[api.item_type_cache["Type"].isin(type_filter)][
         "TypeID"
     ].tolist()
     filtered_df = filtered_df[filtered_df["TypeID"].isin(type_ids)]
 
-# Status filter
 if status_filter == "Active Only":
     filtered_df = filtered_df[filtered_df["Inactive"] == False]
 elif status_filter == "Inactive Only":
     filtered_df = filtered_df[filtered_df["Inactive"] == True]
 
-# Stock filter
 if stock_filter == "Should Stock":
     filtered_df = filtered_df[filtered_df["ShouldStock"] == True]
 elif stock_filter == "Don't Stock":
@@ -330,7 +318,6 @@ with action_col2:
             use_container_width=True,
         )
 
-# Display configuration
 column_config = {
     "ItemID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
     "Item": st.column_config.TextColumn("Item Name", width="medium", required=True),
@@ -346,7 +333,6 @@ column_config = {
     "PictureLink": st.column_config.TextColumn("Pic Link", width="medium"),
 }
 
-# Editable data editor
 if st.session_state.edit_mode:
     st.info("✏️ **Edit Mode** - Make changes, then click 'Save Changes'")
 
@@ -359,7 +345,6 @@ if st.session_state.edit_mode:
         key="items_editor",
     )
 
-    # Detect changes by comparing dataframes
     if not edited_df.equals(filtered_df):
         st.warning(f"⚠️ Unsaved changes detected!")
 
@@ -372,17 +357,14 @@ if st.session_state.edit_mode:
                 success_count = 0
                 error_count = 0
 
-                # Compare row by row
                 for idx in edited_df.index:
                     item_id = edited_df.loc[idx, "ItemID"]
                     original_row = filtered_df.loc[idx]
                     edited_row = edited_df.loc[idx]
 
-                    # Find changed columns
                     changes = {}
                     for col in edited_df.columns:
                         if col != "ItemID":
-                            # Handle NaN comparison
                             orig_val = original_row[col]
                             edit_val = edited_row[col]
 
@@ -391,7 +373,6 @@ if st.session_state.edit_mode:
                             if orig_val != edit_val:
                                 changes[col] = edit_val
 
-                    # Update if changes found
                     if changes:
                         if update_item(item_id, changes):
                             success_count += 1
@@ -410,7 +391,6 @@ if st.session_state.edit_mode:
             if st.button("🔄 Discard Changes", use_container_width=True):
                 st.rerun()
 else:
-    # Read-only view
     st.dataframe(
         filtered_df,
         use_container_width=True,
@@ -423,7 +403,6 @@ st.divider()
 with st.expander("🔧 Bulk Operations"):
     st.write("### Bulk Actions")
 
-    # Use cached item types (already loaded)
     item_types = api.item_type_cache.set_index("TypeID")["Type"].to_dict()
 
     bulk_col1, bulk_col2, bulk_col3 = st.columns(3)
@@ -502,7 +481,7 @@ if st.session_state.get("show_debug", False):
                 "Item ID to verify", min_value=1, step=1, key="check_id"
             )
             if st.button("🔍 Query DB Directly"):
-                result = api._get_by_id(Item, "ItemID", check_id)
+                result = api._get_by_id(IM, "ItemID", check_id)
                 if result:
                     st.success(f"✅ Found in database:")
                     st.json(result)
@@ -515,10 +494,8 @@ if st.session_state.get("show_debug", False):
                 "Item ID to compare", min_value=1, step=1, key="compare_id"
             )
             if st.button("⚖️ Compare Cache vs DB"):
-                # From cache
                 cached = api.item_cache[api.item_cache["ItemID"] == compare_id]
-                # From DB
-                from_db = api._get_by_id(Item, "ItemID", compare_id)
+                from_db = api._get_by_id(IM, "ItemID", compare_id)
 
                 if not cached.empty and from_db:
                     st.write("**From Cache:**")
@@ -526,7 +503,6 @@ if st.session_state.get("show_debug", False):
                     st.write("**From Database:**")
                     st.json(from_db)
 
-                    # Check if they match
                     if cached.iloc[0].to_dict() == from_db:
                         st.success("✅ Cache and DB are in sync")
                     else:

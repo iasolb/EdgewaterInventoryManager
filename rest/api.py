@@ -231,9 +231,7 @@ class EdgewaterAPI:
                         if (
                             key != "_sa_instance_state"
                         ):  # Skip SQLAlchemy internal state
-                            row_dict[key] = (
-                                value  # unpack the iterator object (must happen in lowest level crud before session closes)
-                            )
+                            row_dict[key] = value
                     clean_data.append(row_dict)
 
                 return pd.DataFrame(clean_data)
@@ -807,7 +805,7 @@ class EdgewaterAPI:
         try:
             from models import (
                 Item as ItemModel,
-            )  # Import with alias to avoid name collision
+            )
 
             p: ItemPayload = {
                 "ItemID": self._get_next_id(
