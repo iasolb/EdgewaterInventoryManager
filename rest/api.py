@@ -272,13 +272,42 @@ class EdgewaterAPI:
             raise
 
     def _create(self, model_class, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Generic method to create a new record"""
+        """Generic method to create a new record with proper type conversion"""
         try:
+            from sqlalchemy import Text, String, Integer, Float, Boolean, DateTime
+
             with get_db_session() as session:
-                new_record = model_class(**data)
+                # Create empty instance
+                new_record = model_class()
+
+                # Set attributes with type-aware conversion
+                for key, value in data.items():
+                    if hasattr(new_record, key):
+                        # Get the column type from the model
+                        column = getattr(model_class, key)
+                        column_type = column.property.columns[0].type
+
+                        # Convert based on column type
+                        if value is None:
+                            setattr(new_record, key, None)
+                        elif isinstance(column_type, (Text, String)):
+                            # For Text and String columns, just convert to string
+                            setattr(new_record, key, str(value))
+                        elif isinstance(column_type, Integer):
+                            setattr(new_record, key, int(value))
+                        elif isinstance(column_type, Float):
+                            setattr(new_record, key, float(value))
+                        elif isinstance(column_type, Boolean):
+                            setattr(new_record, key, bool(value))
+                        elif isinstance(column_type, DateTime):
+                            setattr(new_record, key, value)
+                        else:
+                            setattr(new_record, key, value)
+
                 session.add(new_record)
                 session.commit()
                 session.refresh(new_record)
+
                 result_dict = {
                     key: value
                     for key, value in new_record.__dict__.items()
@@ -776,9 +805,15 @@ class EdgewaterAPI:
     ) -> Dict[str, Any]:
         """Add new item record"""
         try:
+            from models import (
+                Item as ItemModel,
+            )  # Import with alias to avoid name collision
+
             p: ItemPayload = {
-                "ItemID": self._get_next_id(Item, "ItemID"),
-                "Item": Item,
+                "ItemID": self._get_next_id(
+                    ItemModel, "ItemID"
+                ),  # Use ItemModel class, not Item string
+                "Item": Item,  # This is the string "Test" from the form
                 "TypeID": TypeID,
                 "Variety": Variety,
                 "Color": Color,
@@ -790,7 +825,9 @@ class EdgewaterAPI:
                 "PictureLink": PictureLink,
                 "SunConditions": SunConditions,
             }
-            result = self._create(model_class=Item, data=p)
+            result = self._create(
+                model_class=ItemModel, data=p
+            )  # Use ItemModel here too
             logger.info(f"Added item record {result['ItemID']}")
             return result
         except Exception as e:
@@ -1318,18 +1355,15 @@ class EdgewaterAPI:
             Updated record dict or None if not found
         """
         try:
-            # Get existing record to verify it exists
             existing = self._get_by_id(model_class, id_column, id_value)
             if not existing:
                 logger.warning(f"Record not found: {id_column}={id_value}")
                 return None
 
-            # Filter to allowed fields only
             filtered_updates = {}
             rejected_fields = []
 
             for column, value in updates.items():
-                # Skip if not in allowed fields
                 if allowed_fields is not None and column not in allowed_fields:
                     rejected_fields.append(column)
                     if strict:
@@ -1347,7 +1381,6 @@ class EdgewaterAPI:
                 logger.warning("No valid fields to update after filtering")
                 return existing
 
-            # Preprocess filtered updates
             processed_updates = {}
             for column, value in filtered_updates.items():
                 if preprocessors and column in preprocessors:
@@ -1363,13 +1396,13 @@ class EdgewaterAPI:
                 else:
                     processed_updates[column] = value
 
-            # Call the underlying _update with processed data
             result = self._update(
                 model_class=model_class,
                 id_column=id_column,
                 id_value=id_value,
                 updates=processed_updates,
             )
+            return result
         except Exception as e:
             logger.exception(e)
             print(f"failed with updates {updates}, available fields: {allowed_fields}")
