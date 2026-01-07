@@ -1,43 +1,270 @@
 import streamlit as st
+import pandas as pd
 import sys
 from pathlib import Path
+from datetime import datetime
+from typing import Optional
+from loguru import logger
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 from rest.api import EdgewaterAPI
+from models import ItemType as ITM
+from payloads import ItemTypePayload
 
 api = EdgewaterAPI()
-api.reset_cache("item_type_cache", api.get_item_type_full)
 
 st.set_page_config(
-    page_title="Item Types Table Administration View",
-    page_icon="",  # TODO get or create a real favicon
+    page_title="Item Types Administration",
+    page_icon="🏷️",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+
+api.reset_cache("item_type_cache", api.get_item_type_full)
+
+# ==================== SESSION STATE ====================
+if "show_add_form" not in st.session_state:
+    st.session_state.show_add_form = False
+if "edit_mode" not in st.session_state:
+    st.session_state.edit_mode = False
+
+
+def refresh_cache():
+    """Refresh the item type cache after mutations"""
+    with st.spinner("Refreshing data..."):
+        api.reset_cache("item_type_cache", api.get_item_type_full)
+    st.success("✅ Data refreshed!")
+
+
+def create_item_type_from_form(form_data: dict) -> Optional[dict]:
+    """Create a new item type using the API's table_add_item_type method"""
+    try:
+        result = api.table_add_item_type(Type=str(form_data["Type"]))
+        return result
+    except Exception as e:
+        st.error(f"❌ Error creating item type: {e}")
+        logger.error(f"Create failed: {e}")
+        return None
+
+
+def update_item_type(type_id: int, updates: dict) -> bool:
+    """Update an item type using the API's generic_update method"""
+    try:
+        allowed_fields = {"Type"}
+
+        result = api.generic_update(
+            model_class=ITM,
+            id_column="TypeID",
+            id_value=type_id,
+            updates=updates,
+            allowed_fields=allowed_fields,
+        )
+
+        if result:
+            logger.info(f"✓ Updated ItemType {type_id}: {updates}")
+
+        return result is not None
+    except Exception as e:
+        st.error(f"❌ Error updating item type {type_id}: {e}")
+        logger.error(f"Update failed for ItemType {type_id}: {e}")
+        return False
+
+
+def delete_item_type(type_id: int) -> bool:
+    """Delete an item type using the API's _delete method"""
+    try:
+        return api._delete(ITM, "TypeID", type_id)
+    except Exception as e:
+        st.error(f"❌ Error deleting item type {type_id}: {e}")
+        return False
+
+
+# ==================== HEADER ====================
 top_row = st.columns([1, 2, 1])
 
-# back button
 with top_row[0]:
-    if st.button("← Back"):
+    if st.button("← Back to Admin"):
         st.switch_page("pages/admin_landing.py")
 
 with top_row[1]:
-    pass
+    st.title("🏷️ Item Types Administration")
 
 with top_row[2]:
-    pass
+    if st.button("🔄 Refresh", use_container_width=True):
+        refresh_cache()
+        st.rerun()
+
 st.divider()
-st.title("Item Types Administration Table")
-st.divider()
-st.write("Coming soon...")
-st.write(
-    "This page will allow administrators to manage item types table in the database directly."
+
+# ==================== ADD NEW ITEM TYPE FORM ====================
+with st.expander("➕ Add New Item Type", expanded=st.session_state.show_add_form):
+    st.write("### Create New Item Type")
+
+    with st.form("add_item_type_form", clear_on_submit=True):
+        form_type = st.text_input("Type Name *", key="form_type")
+
+        submitted = st.form_submit_button(
+            "💾 Create Item Type", type="primary", use_container_width=True
+        )
+
+        if submitted:
+            if not form_type:
+                st.error("❌ Type name is required!")
+            else:
+                form_data = {"Type": form_type}
+
+                result = create_item_type_from_form(form_data)
+                if result:
+                    st.success(
+                        f"✅ Item Type '{form_type}' created! (ID: {result['TypeID']})"
+                    )
+                    st.session_state.show_add_form = False
+                    refresh_cache()
+                    st.rerun()
+
+    st.divider()
+
+# ==================== FILTERS & SEARCH ====================
+st.write("### 🔍 Search & Filter")
+
+search_term = st.text_input(
+    "Search Item Types",
+    placeholder="Search by type name...",
+    key="search_term",
 )
-content_row = st.columns(3)
-with content_row[0]:
-    pass
-with content_row[1]:
-    st.data_editor(api.item_type_cache, width=1400, on_change=None)
-with content_row[2]:
-    pass
+
+# Apply filters
+filtered_df = api.item_type_cache.copy()
+
+# Search filter
+if search_term:
+    mask = filtered_df["Type"].fillna("").str.contains(search_term, case=False)
+    filtered_df = filtered_df[mask]
+
+st.divider()
+
+# ==================== DATA DISPLAY & EDITING ====================
+st.write(f"### 📊 Item Types ({len(filtered_df)} records)")
+
+# Action buttons
+action_col1, action_col2 = st.columns([1, 5])
+
+with action_col1:
+    if st.button(
+        "✏️ Edit Mode" if not st.session_state.edit_mode else "🔒 View Mode",
+        use_container_width=True,
+        type="primary" if not st.session_state.edit_mode else "secondary",
+    ):
+        st.session_state.edit_mode = not st.session_state.edit_mode
+        st.rerun()
+
+with action_col2:
+    if st.button("📥 Export CSV", use_container_width=True):
+        csv = filtered_df.to_csv(index=False)
+        st.download_button(
+            label="Download CSV",
+            data=csv,
+            file_name=f"item_types_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+column_config = {
+    "TypeID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
+    "Type": st.column_config.TextColumn("Type Name", width="large", required=True),
+}
+
+if st.session_state.edit_mode:
+    st.info("✏️ **Edit Mode** - Make changes, then click 'Save Changes'")
+
+    edited_df = st.data_editor(
+        filtered_df,
+        use_container_width=True,
+        num_rows="fixed",
+        column_config=column_config,
+        hide_index=True,
+        key="item_types_editor",
+    )
+
+    if not edited_df.equals(filtered_df):
+        st.warning(f"⚠️ Unsaved changes detected!")
+
+        save_col1, save_col2 = st.columns([1, 5])
+
+        with save_col1:
+            if st.button(
+                "💾 Save All Changes", type="primary", use_container_width=True
+            ):
+                success_count = 0
+                error_count = 0
+
+                for idx in edited_df.index:
+                    type_id = edited_df.loc[idx, "TypeID"]
+                    original_row = filtered_df.loc[idx]
+                    edited_row = edited_df.loc[idx]
+
+                    changes = {}
+                    for col in edited_df.columns:
+                        if col != "TypeID":
+                            orig_val = original_row[col]
+                            edit_val = edited_row[col]
+
+                            if pd.isna(orig_val) and pd.isna(edit_val):
+                                continue
+                            if orig_val != edit_val:
+                                changes[col] = edit_val
+
+                    if changes:
+                        if update_item_type(type_id, changes):
+                            success_count += 1
+                        else:
+                            error_count += 1
+
+                if success_count > 0:
+                    st.success(f"✅ Updated {success_count} item types")
+                if error_count > 0:
+                    st.error(f"❌ Failed to update {error_count} item types")
+
+                refresh_cache()
+                st.rerun()
+
+        with save_col2:
+            if st.button("🔄 Discard Changes", use_container_width=True):
+                st.rerun()
+else:
+    st.dataframe(
+        filtered_df,
+        use_container_width=True,
+        column_config=column_config,
+        hide_index=True,
+    )
+
+# ==================== BULK OPERATIONS ====================
+st.divider()
+with st.expander("🔧 Bulk Operations"):
+    st.write("### Bulk Actions")
+
+    bulk_col1, bulk_col2 = st.columns(2)
+
+    with bulk_col1:
+        st.write("**Delete Item Types**")
+        st.warning("⚠️ Permanent action!")
+        delete_ids = st.text_input(
+            "Type IDs (comma-separated)", key="bulk_delete_ids", placeholder="1,2,3"
+        )
+        confirm_delete = st.checkbox("Confirm deletion", key="confirm_bulk_delete")
+        if st.button("🗑️ Delete", key="bulk_delete_btn", disabled=not confirm_delete):
+            if delete_ids:
+                ids = [int(x.strip()) for x in delete_ids.split(",")]
+                success = sum([delete_item_type(id) for id in ids])
+                st.success(f"✅ Deleted {success}/{len(ids)} item types")
+                refresh_cache()
+                st.rerun()
+
+# ==================== FOOTER ====================
+st.divider()
+
+st.caption(
+    f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total item types in database: {len(api.item_type_cache)}"
+)
