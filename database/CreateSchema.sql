@@ -204,3 +204,34 @@ CREATE TABLE `T_Sun` (
     `SunConditionName` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
+DROP TABLE IF EXISTS `T_SeasonalNotes`;
+CREATE TABLE `T_SeasonalNotes` (
+    `NoteID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `ItemID` INTEGER,
+    `GrowingSeasonID` INTEGER,
+    `Greenhouse` BOOLEAN,
+    `Note` TEXT
+) ENGINE=InnoDB CHARACTER SET UTF8;
+
+DROP TABLE IF EXISTS `T_OrderItemDestination`;
+CREATE TABLE `T_OrderItemDestination` (
+    `OrderItemID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `Count` INTEGER,
+    `FormatID` INTEGER
+    `LocationID` INTEGER
+) ENGINE=InnoDB CHARACTER SET UTF8;
+
+DROP TABLE IF EXISTS `T_Users`;
+CREATE TABLE `T_Users` (
+    `UserID`INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `Role` TEXT,
+    `PermissionLevel` TEXT,
+    `Email` TEXT,
+    `Active` BOOLEAN,
+) ENGINE=InnoDB CHARACTER SET UTF8;
+
+DROP TABLE IF EXISTS `T_Locations`;
+CREATE TABLE `T_Locations` (
+   `LocationID`INTEGER PRIMARY KEY AUTO_INCREMENT,
+   `Location` TEXT, 
+) ENGINE=InnoDB CHARACTER SET UTF8;

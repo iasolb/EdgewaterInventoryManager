@@ -278,18 +278,14 @@ class EdgewaterAPI:
                 # Create empty instance
                 new_record = model_class()
 
-                # Set attributes with type-aware conversion
                 for key, value in data.items():
                     if hasattr(new_record, key):
-                        # Get the column type from the model
                         column = getattr(model_class, key)
                         column_type = column.property.columns[0].type
 
-                        # Convert based on column type
                         if value is None:
                             setattr(new_record, key, None)
                         elif isinstance(column_type, (Text, String)):
-                            # For Text and String columns, just convert to string
                             setattr(new_record, key, str(value))
                         elif isinstance(column_type, Integer):
                             setattr(new_record, key, int(value))

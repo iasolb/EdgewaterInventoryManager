@@ -14,7 +14,6 @@ from payloads import ItemPayload
 
 api = EdgewaterAPI()
 
-
 st.set_page_config(
     page_title="Items Table Administration",
     page_icon="🌿",
@@ -43,7 +42,6 @@ def refresh_cache():
 def verify_db_write(item_id: int, field: str, expected_value) -> bool:
     """Verify a database write by querying directly"""
     try:
-        # Query fresh from DB (bypass cache)
         from_db = api._get_by_id(IM, "ItemID", item_id)
         if from_db and from_db.get(field) == expected_value:
             logger.info(
