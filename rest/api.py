@@ -1401,8 +1401,3 @@ class EdgewaterAPI:
             logger.exception(e)
             print(f"failed with updates {updates}, available fields: {allowed_fields}")
             return result
-
-    """
-
-    Deletion Routing
-    """

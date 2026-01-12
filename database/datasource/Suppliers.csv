@@ -1,4 +1,4 @@
-SupplierID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1,Address2,City,State,Zip,SupplierComments,SupplierType
+Supplie+A1:O1rID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1,Address2,City,State,Zip,SupplierComments,SupplierType
 1,Harris,,,,,,,,,,,,,Greenhouse
 2,Chilltern,,,,,,,,,,,,,Greenhouse
 3,Michells,,,,,,,,,,,,,Greenhouse
@@ -7,7 +7,7 @@ SupplierID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1
 6,Greenleaf,,,,,,,,,,,,,Greenhouse
 8,Vanderberg,,,,,,,,,,,,,Greenhouse
 9,Walter's,,,,,,,,,,,,,Greenhouse
-10,Siegers,6032985764.0,800-962-4999,,,,,13031 Reflections Drive,,Holland,MI,49424,Seeds,Greenhouse
+10,Siegers,6032985764,800-962-4999,,,,,13031 Reflections Drive,,Holland,MI,49424,Seeds,Greenhouse
 11,Rupps,,,,,,,,,,,,,Greenhouse
 12,Seedhunt,,,,,,,,,,,,,Greenhouse
 13,Thompson & Morgan,,,,,,,,,,,,,Greenhouse
@@ -50,7 +50,7 @@ SupplierID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1
 51,FedCo,,,,,,,,,,,,,Greenhouse
 52,Wildseed,,,,,,,,,,,,,Greenhouse
 53,Select,,,,,,,,,,,,,Greenhouse
-54,Stokes Vegetables,600018621.0,800-263-7233,,,,,P.O. Box 548,,Buffalo,NY,14240-0548,Seeds,Greenhouse
+54,Stokes Vegetables,600018621,800-263-7233,,,,,P.O. Box 548,,Buffalo,NY,14240-0548,Seeds,Greenhouse
 55,Johnny's Vegetables,,,,,,,,,,,,,Greenhouse
 56,Harris Vegetables,,,,,,,,,,,,,Greenhouse
 57,Wood Prairie Farm,,,,,,,,,,,,,Greenhouse
@@ -62,13 +62,13 @@ SupplierID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1
 64,Mountain Valley Grower,,,,,,,,,,,,,Greenhouse
 65,Sylvan,,,,,,,,,,,,,Greenhouse
 66,Waushara,,,,,,,,,,,,,Greenhouse
-67,Plant Delights Nursery,137562.0,,,,,,,,,,,,Greenhouse
-68,Piedmont Plant Company,81991.0,,,,,,,,,,,,Greenhouse
+67,Plant Delights Nursery,137562,,,,,,,,,,,,Greenhouse
+68,Piedmont Plant Company,81991,,,,,,,,,,,,Greenhouse
 69,Glass Corner Greenhouse,,,,,,,,,,,,,Greenhouse
 70,Shady Hill Gardens,,,,,,,,,,,,,Greenhouse
 71,"J.L. Hudson, Seedsman",,,,,,,,,,,,,Greenhouse
 72,HPS,,,,,,,,,,,,,Greenhouse
-73,Seedway,1265996.0,800-836-3710,,,,,1734 Railroad Place,,Hall,NY,14463,Seeds,Greenhouse
+73,Seedway,1265996,800-836-3710,,,,,1734 Railroad Place,,Hall,NY,14463,Seeds,Greenhouse
 74,Hudson,,,,,,,,,,,,,Greenhouse
 75,Liner Farm Inc.,,,,,,,,,,,,,Greenhouse
 76,De Ruiter Seeds Inc.,,,,,,,,,,,,,Greenhouse
@@ -177,18 +177,18 @@ SupplierID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1
 183,Mast Young Plants,,616.784.0583,,,,,6564 Peach Ridge Ave. NW,,Grand Rapids,MI,49544,Plants,Greenhouse
 184,Creek Hill,,,,,,,,,,,,,
 185,"Paramont Seeds, Inc.",,772-221-0653,,,,Richard Blakey,P.O. Box 1866,,Palm City,FL,34991,Seeds,
-186,Tomato Growers Supply Company,158900.0,888-478-7333,,,,,P.O. Box 60015,,Ft. Myers,FL,33906,,
+186,Tomato Growers Supply Company,158900,888-478-7333,,,,,P.O. Box 60015,,Ft. Myers,FL,33906,,
 187,Gardenworld,,,,,,Pat Koloski,PO BOX 14124,,St. Paul,MN,55114,,
 188,De Goede Bulb Farm,,,,,,,,,,,,,
 189,Syngenta,,,,,,,,,,,,,
 190,Possum Run,,,,,,,,,,,,,
 191,Germania,,800.380.4721,,,,Janice Dunn,PO BOX 31787,,Chicago,IL,60631,,Greenhouse
-192,Harris Seeds,9011284.0,800-544-7938,,,,,355 Paul Road,P.O. Box 24966,Rochester,NY,14624-0966,Seeds,Greenhouse
+192,Harris Seeds,9011284,800-544-7938,,,,,355 Paul Road,P.O. Box 24966,Rochester,NY,14624-0966,Seeds,Greenhouse
 193,Hatchett Creek,,352.373.7589,,,,,11713 Northeast State Road 26,,Gainsesville,FL,,,Greenhouse
 194,Grow' N Sell,,215.822.1276,,,,,320 Lower State Road,,Chalfont,PA,18914,,Greenhouse
 195,Pell Greenhouse,,,,,,,,,,,,,
 196,Geo Seeds,,864.227.5100,,,,,121 Gary Road,,Hodges,SC,29653,,
-197,"Otis S. Twilley Seed Co., Inc.",1117872.0,864-227-5150,,,,,P.O. Box 4000,,Hodges,SC,29653,Seeds,Farm
+197,"Otis S. Twilley Seed Co., Inc.",1117872,864-227-5150,,,,,P.O. Box 4000,,Hodges,SC,29653,Seeds,Farm
 198,"Amos Zittel & Sons, Inc.",,,,,,,,,,,,,
 199,Netherland Bulb Company,,,,,,,,,,,,,
 200,Kitazawa Seed Co.,,510-595-1188,,,,,"201 4th Street, #206",,Oakland,CA,94607,,Farm
@@ -226,3 +226,4 @@ SupplierID,Supplier,AccountNumber,Phone,Fax,WebSite,Email,ContactPerson,Address1
 232,Wagner,,,,,,,,,,,,,Greenhouse
 233,The Plant Group,,860.642.6030,,,,,117 Pond Road,,Franklin,CT,06254,,Greenhouse
 234,Kebul Plants,,,,,,,,,,,,,
+0,Unknown,,,,,,,,,,,,,

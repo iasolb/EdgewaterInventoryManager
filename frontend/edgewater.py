@@ -14,9 +14,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 from database import get_db_session
 from models import Item
 from rest.api import EdgewaterAPI
-
+from rest.authenticate import Authenticate
 api = EdgewaterAPI()
-
+auth = Authenticate()
 st.set_page_config(
     page_title="Edgewater Inventory Manager",
     page_icon="🌿",  # TODO get or create a real favicon

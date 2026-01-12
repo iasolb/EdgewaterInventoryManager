@@ -1,69 +1,143 @@
 -- Foreign Key Relationships for EdgewaterMaster
--- Production Ready Version - Only adds constraints that will succeed
+-- Clean version - all orphans already fixed in LoadData.sql
 
--- Add missing lookup values for ID=0 (common "unassigned" placeholder)
-INSERT IGNORE INTO T_ItemType (TypeID, Type) VALUES (0, 'Unassigned');
+SET FOREIGN_KEY_CHECKS = 0;
 
--- Fix orphaned Items with invalid TypeID (set to NULL rather than adding fake types)
-UPDATE T_Items i 
-LEFT JOIN T_ItemType t ON i.TypeID = t.TypeID 
-SET i.TypeID = NULL 
-WHERE t.TypeID IS NULL AND i.TypeID IS NOT NULL;
-INSERT IGNORE INTO T_GrowingSeason (GrowingSeasonID, GrowingSeason) VALUES (0, 'Unassigned');
-INSERT IGNORE INTO T_OrderItemTypes (OrderItemTypeID, OrderItemType) VALUES (0, 'Unassigned');
-INSERT IGNORE INTO T_OrderItemTypes (OrderItemTypeID, OrderItemType) VALUES (1, 'Type 1');
-INSERT IGNORE INTO T_OrderNotes (OrderNoteID, OrderNote) VALUES (0, 'No Note');
-INSERT IGNORE INTO T_Shippers (ShipperID, Shipper) VALUES (0, 'Not Shipped');
-INSERT IGNORE INTO T_Suppliers (SupplierID, Supplier) VALUES (0, 'Unknown Supplier');
-INSERT IGNORE INTO T_Suppliers (SupplierID, Supplier) VALUES (7, 'Supplier 7');
-INSERT IGNORE INTO T_Suppliers (SupplierID, Supplier) VALUES (103, 'Supplier 103');
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (0, 'Unassigned', 1);
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (12, 'Unit 12', 1);
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (13, 'Unit 13', 1);
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (14, 'Unit 14', 1);
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (28, 'Unit 28', 1);
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (29, 'Unit 29', 1);
-INSERT IGNORE INTO T_Units (UnitID, UnitType, UnitCategoryID) VALUES (30, 'Unit 30', 1);
+-- ==================== CREATE ALL FOREIGN KEYS ====================
 
--- Fix incomplete Shipper record
-UPDATE T_Shippers SET Shipper = 'Shipper 7' WHERE ShipperID = 7 AND (Shipper IS NULL OR Shipper = '');
-
--- T_Items relationships (only TypeID, skip others due to orphaned Items)
-ALTER TABLE `T_Items` ADD FOREIGN KEY (`TypeID`) REFERENCES `T_ItemType`(`TypeID`);
+-- T_Items relationships
+ALTER TABLE `T_Items` 
+ADD CONSTRAINT `fk_Items_TypeID` 
+FOREIGN KEY (`TypeID`) REFERENCES `T_ItemType`(`TypeID`)
+ON DELETE SET NULL;
 
 -- T_Units relationships
-ALTER TABLE `T_Units` ADD FOREIGN KEY (`UnitCategoryID`) REFERENCES `T_UnitCategory`(`UnitCategoryID`);
+ALTER TABLE `T_Units` 
+ADD CONSTRAINT `fk_Units_UnitCategoryID` 
+FOREIGN KEY (`UnitCategoryID`) REFERENCES `T_UnitCategory`(`UnitCategoryID`)
+ON DELETE SET NULL;
 
--- T_Prices relationships - SKIP due to orphaned Items
--- ALTER TABLE `T_Prices` ADD FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`);
-ALTER TABLE `T_Prices` ADD FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`);
+-- T_Prices relationships
+ALTER TABLE `T_Prices` 
+ADD CONSTRAINT `fk_Prices_ItemID` 
+FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
+ON DELETE CASCADE;
 
--- T_Plantings relationships - SKIP ItemID due to orphaned Items
--- ALTER TABLE `T_Plantings` ADD FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`);
-ALTER TABLE `T_Plantings` ADD FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`);
+ALTER TABLE `T_Prices` 
+ADD CONSTRAINT `fk_Prices_UnitID` 
+FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
+ON DELETE SET NULL;
 
--- T_Inventory relationships - SKIP ItemID due to orphaned Items
--- ALTER TABLE `T_Inventory` ADD FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`);
-ALTER TABLE `T_Inventory` ADD FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`);
+-- T_Plantings relationships
+ALTER TABLE `T_Plantings` 
+ADD CONSTRAINT `fk_Plantings_ItemID` 
+FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
+ON DELETE CASCADE;
 
--- T_Pitch relationships - SKIP ItemID due to orphaned Items
--- ALTER TABLE `T_Pitch` ADD FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`);
-ALTER TABLE `T_Pitch` ADD FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`);
+ALTER TABLE `T_Plantings` 
+ADD CONSTRAINT `fk_Plantings_UnitID` 
+FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
+ON DELETE SET NULL;
+
+-- T_Inventory relationships
+ALTER TABLE `T_Inventory` 
+ADD CONSTRAINT `fk_Inventory_ItemID` 
+FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
+ON DELETE CASCADE;
+
+ALTER TABLE `T_Inventory` 
+ADD CONSTRAINT `fk_Inventory_UnitID` 
+FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
+ON DELETE SET NULL;
+
+-- T_Pitch relationships
+ALTER TABLE `T_Pitch` 
+ADD CONSTRAINT `fk_Pitch_ItemID` 
+FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
+ON DELETE CASCADE;
+
+ALTER TABLE `T_Pitch` 
+ADD CONSTRAINT `fk_Pitch_UnitID` 
+FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
+ON DELETE SET NULL;
 
 -- T_Orders relationships
-ALTER TABLE `T_Orders` ADD FOREIGN KEY (`GrowingSeasonID`) REFERENCES `T_GrowingSeason`(`GrowingSeasonID`);
-ALTER TABLE `T_Orders` ADD FOREIGN KEY (`SupplierID`) REFERENCES `T_Suppliers`(`SupplierID`);
-ALTER TABLE `T_Orders` ADD FOREIGN KEY (`ShipperID`) REFERENCES `T_Shippers`(`ShipperID`);
-ALTER TABLE `T_Orders` ADD FOREIGN KEY (`BrokerID`) REFERENCES `T_Brokers`(`BrokerID`);
+ALTER TABLE `T_Orders` 
+ADD CONSTRAINT `fk_Orders_GrowingSeasonID` 
+FOREIGN KEY (`GrowingSeasonID`) REFERENCES `T_GrowingSeason`(`GrowingSeasonID`)
+ON DELETE SET NULL;
+
+ALTER TABLE `T_Orders` 
+ADD CONSTRAINT `fk_Orders_SupplierID` 
+FOREIGN KEY (`SupplierID`) REFERENCES `T_Suppliers`(`SupplierID`)
+ON DELETE SET NULL;
+
+ALTER TABLE `T_Orders` 
+ADD CONSTRAINT `fk_Orders_ShipperID` 
+FOREIGN KEY (`ShipperID`) REFERENCES `T_Shippers`(`ShipperID`)
+ON DELETE SET NULL;
+
+ALTER TABLE `T_Orders` 
+ADD CONSTRAINT `fk_Orders_BrokerID` 
+FOREIGN KEY (`BrokerID`) REFERENCES `T_Brokers`(`BrokerID`)
+ON DELETE SET NULL;
 
 -- T_OrderItems relationships
-ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`OrderID`) REFERENCES `T_Orders`(`OrderID`);
--- SKIP ItemID due to orphaned Items
--- ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`);
-ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`OrderItemTypeID`) REFERENCES `T_OrderItemTypes`(`OrderItemTypeID`);
-ALTER TABLE `T_OrderItems` ADD FOREIGN KEY (`OrderNote`) REFERENCES `T_OrderNotes`(`OrderNoteID`);
+ALTER TABLE `T_OrderItems` 
+ADD CONSTRAINT `fk_OrderItems_OrderID` 
+FOREIGN KEY (`OrderID`) REFERENCES `T_Orders`(`OrderID`)
+ON DELETE CASCADE;
 
--- Indexes for performance
+ALTER TABLE `T_OrderItems` 
+ADD CONSTRAINT `fk_OrderItems_ItemID` 
+FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
+ON DELETE SET NULL;
+
+ALTER TABLE `T_OrderItems` 
+ADD CONSTRAINT `fk_OrderItems_OrderItemTypeID` 
+FOREIGN KEY (`OrderItemTypeID`) REFERENCES `T_OrderItemTypes`(`OrderItemTypeID`)
+ON DELETE SET NULL;
+
+ALTER TABLE `T_OrderItems` 
+ADD CONSTRAINT `fk_OrderItems_OrderNote` 
+FOREIGN KEY (`OrderNote`) REFERENCES `T_OrderNotes`(`OrderNoteID`)
+ON DELETE SET NULL;
+
+-- T_SeasonalNotes relationships
+ALTER TABLE `T_SeasonalNotes` 
+ADD CONSTRAINT `fk_SeasonalNotes_ItemID` 
+FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
+ON DELETE CASCADE;
+
+ALTER TABLE `T_SeasonalNotes` 
+ADD CONSTRAINT `fk_SeasonalNotes_GrowingSeasonID` 
+FOREIGN KEY (`GrowingSeasonID`) REFERENCES `T_GrowingSeason`(`GrowingSeasonID`)
+ON DELETE CASCADE;
+
+-- T_OrderItemDestination relationships
+ALTER TABLE `T_OrderItemDestination` 
+ADD CONSTRAINT `fk_OrderItemDest_OrderItemID` 
+FOREIGN KEY (`OrderItemID`) REFERENCES `T_OrderItems`(`OrderItemID`)
+ON DELETE CASCADE;
+
+ALTER TABLE `T_OrderItemDestination` 
+ADD CONSTRAINT `fk_OrderItemDest_UnitID` 
+FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
+ON DELETE SET NULL;
+
+ALTER TABLE `T_OrderItemDestination` 
+ADD CONSTRAINT `fk_OrderItemDest_LocationID` 
+FOREIGN KEY (`LocationID`) REFERENCES `T_Locations`(`LocationID`)
+ON DELETE SET NULL;
+
+-- T_Passwords relationships
+ALTER TABLE `T_Passwords` 
+ADD CONSTRAINT `fk_Passwords_UserID` 
+FOREIGN KEY (`UserID`) REFERENCES `T_Users`(`UserID`) 
+ON DELETE CASCADE;
+
+-- ==================== CREATE INDEXES FOR PERFORMANCE ====================
+
 CREATE INDEX `ix_Items_TypeID` ON `T_Items`(`TypeID`);
 CREATE INDEX `ix_Units_UnitCategoryID` ON `T_Units`(`UnitCategoryID`);
 CREATE INDEX `ix_Prices_ItemID` ON `T_Prices`(`ItemID`);
@@ -82,5 +156,26 @@ CREATE INDEX `ix_OrderItems_OrderID` ON `T_OrderItems`(`OrderID`);
 CREATE INDEX `ix_OrderItems_ItemID` ON `T_OrderItems`(`ItemID`);
 CREATE INDEX `ix_OrderItems_OrderItemTypeID` ON `T_OrderItems`(`OrderItemTypeID`);
 CREATE INDEX `ix_OrderItems_OrderNote` ON `T_OrderItems`(`OrderNote`);
+CREATE INDEX `ix_SeasonalNotes_ItemID` ON `T_SeasonalNotes`(`ItemID`);
+CREATE INDEX `ix_SeasonalNotes_GrowingSeasonID` ON `T_SeasonalNotes`(`GrowingSeasonID`);
+CREATE INDEX `ix_OrderItemDestination_OrderItemID` ON `T_OrderItemDestination`(`OrderItemID`);
+CREATE INDEX `ix_OrderItemDestination_UnitID` ON `T_OrderItemDestination`(`UnitID`);
+CREATE INDEX `ix_OrderItemDestination_LocationID` ON `T_OrderItemDestination`(`LocationID`);
+CREATE INDEX `ix_Passwords_UserID` ON `T_Passwords`(`UserID`);
+CREATE UNIQUE INDEX `ix_Users_Email` ON `T_Users`(`Email`(255));
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+SELECT 'All Foreign Keys and Indexes Created Successfully!' as Status;
+
+-- Verify foreign keys were created
+SELECT 
+    TABLE_NAME,
+    CONSTRAINT_NAME,
+    COLUMN_NAME,
+    REFERENCED_TABLE_NAME,
+    REFERENCED_COLUMN_NAME
+FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+WHERE TABLE_SCHEMA = 'EdgewaterMaster'
+AND REFERENCED_TABLE_NAME IS NOT NULL
+ORDER BY TABLE_NAME, CONSTRAINT_NAME;

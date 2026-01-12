@@ -1,5 +1,6 @@
 -- SQL Dump of Edgewater Master.accdb
 -- Optimized for MySQL - MIGRATION VERSION (No Foreign Key Constraints)
+-- UPDATED: Separate T_Passwords table for authentication data
 
 DROP DATABASE IF EXISTS `EdgewaterMaster`;
 CREATE DATABASE `EdgewaterMaster`;
@@ -105,22 +106,6 @@ CREATE TABLE `T_Items` (
     `SunConditions` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
-DROP TABLE IF EXISTS `T_Export_Items`;
-CREATE TABLE `T_Export_Items` (
-    `ItemID` INTEGER PRIMARY KEY,
-    `CombinedName` TEXT,
-    `LabelDescription` LONGTEXT,
-    `SunConditions` TEXT,
-    `Inactive` BOOLEAN,
-    `Item` TEXT,
-    `Variety` TEXT,
-    `Color` TEXT,
-    `Type` TEXT,
-    `Definition` LONGTEXT,
-    `PictureLayout` TEXT,
-    `PictureLink` TEXT
-) ENGINE=InnoDB CHARACTER SET UTF8;
-
 DROP TABLE IF EXISTS `T_Prices`;
 CREATE TABLE `T_Prices` (
     `PriceID` INTEGER PRIMARY KEY,
@@ -210,28 +195,49 @@ CREATE TABLE `T_SeasonalNotes` (
     `ItemID` INTEGER,
     `GrowingSeasonID` INTEGER,
     `Greenhouse` BOOLEAN,
-    `Note` TEXT
+    `Note` TEXT,
+    `LastUpdate` DATETIME
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
 DROP TABLE IF EXISTS `T_OrderItemDestination`;
 CREATE TABLE `T_OrderItemDestination` (
-    `OrderItemID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `OrderItemDestinationID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `OrderItemID` INTEGER,
     `Count` INTEGER,
-    `FormatID` INTEGER
+    `UnitID` INTEGER,
     `LocationID` INTEGER
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
+-- User profile and permission data (no authentication data)
 DROP TABLE IF EXISTS `T_Users`;
 CREATE TABLE `T_Users` (
-    `UserID`INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `UserID` INTEGER PRIMARY KEY AUTO_INCREMENT,
     `Role` TEXT,
     `PermissionLevel` TEXT,
-    `Email` TEXT,
-    `Active` BOOLEAN,
+    `Email` VARCHAR(255) NOT NULL,
+    `Active` BOOLEAN DEFAULT TRUE,
+    `CreatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `UpdatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB CHARACTER SET UTF8;
+
+-- Separate table for authentication and security data
+DROP TABLE IF EXISTS `T_Passwords`;
+CREATE TABLE `T_Passwords` (
+    `PasswordID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `UserID` INTEGER NOT NULL UNIQUE,
+    `PasswordHash` VARCHAR(255) NOT NULL,
+    `PasswordResetToken` VARCHAR(255),
+    `PasswordResetExpiry` DATETIME,
+    `LastLogin` DATETIME,
+    `LastPasswordChange` DATETIME,
+    `FailedLoginAttempts` INTEGER DEFAULT 0,
+    `AccountLockedUntil` DATETIME,
+    `CreatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `UpdatedAt` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
 DROP TABLE IF EXISTS `T_Locations`;
 CREATE TABLE `T_Locations` (
-   `LocationID`INTEGER PRIMARY KEY AUTO_INCREMENT,
-   `Location` TEXT, 
+    `LocationID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `Location` TEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;
