@@ -231,26 +231,6 @@ SET
     UnitID = NULLIF(@UnitID, ''),
     LocationID = NULLIF(@LocationID, '');
 
--- ==================== FIX ORPHANED RECORDS ====================
--- Fix 1: T_Prices with invalid ItemID (51 records) -> set to 0
-UPDATE T_Prices 
-SET ItemID = 0
-WHERE ItemID NOT IN (SELECT ItemID FROM T_Items WHERE ItemID IS NOT NULL);
-
--- Fix 2: T_Prices with invalid UnitID (2 records) -> set to 0
-UPDATE T_Prices 
-SET UnitID = 0
-WHERE UnitID NOT IN (SELECT UnitID FROM T_Units WHERE UnitID IS NOT NULL);
-
--- Fix 3: T_Orders with invalid SupplierID (2 records) -> set to 0
-UPDATE T_Orders 
-SET SupplierID = 0
-WHERE SupplierID NOT IN (SELECT SupplierID FROM T_Suppliers WHERE SupplierID IS NOT NULL);
-
--- Fix 4: T_OrderItems with invalid ItemID (1909 records) -> set to 0
-UPDATE T_OrderItems 
-SET ItemID = 0
-WHERE ItemID NOT IN (SELECT ItemID FROM T_Items WHERE ItemID IS NOT NULL);
 
 SET FOREIGN_KEY_CHECKS = 1;
 

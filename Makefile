@@ -1,4 +1,4 @@
-.PHONY: help setup build up down restart logs clean backup restore mysql db-stats
+.PHONY: help setup build up down restart logs clean backup restore mysql db-stats rebuild
 
 # Default target
 help:
@@ -7,6 +7,7 @@ help:
 	@echo "Setup & Build:"
 	@echo "  make setup      - Initial setup (create directories, copy env)"
 	@echo "  make build      - Build Docker containers"
+	@echo "  make rebuild    - Force rebuild (no cache)"
 	@echo ""
 	@echo "Container Management:"
 	@echo "  make up         - Start all services"
@@ -50,6 +51,13 @@ build:
 	docker-compose build --no-cache
 	@echo "✓ Build complete!"
 
+# Force rebuild with volume cleanup
+rebuild:
+	@echo "Force rebuilding (removing volumes and cache)..."
+	docker-compose down -v
+	docker-compose build --no-cache --pull
+	@echo "✓ Force rebuild complete!"
+
 # Start services
 up:
 	@echo "Starting services..."
@@ -68,7 +76,7 @@ down:
 	docker-compose down
 	@echo "✓ Services stopped"
 
-# Restart services
+# Restart services  
 restart:
 	@echo "Restarting services..."
 	docker-compose restart

@@ -21,7 +21,7 @@ st.divider()
 
 st.write("### Select Table to View/Edit")
 
-row1 = st.columns(4)
+row1 = st.columns(5)
 with row1[0]:
     if st.button("Items", use_container_width=True):
         st.switch_page("pages/item.py")
@@ -34,8 +34,11 @@ with row1[2]:
 with row1[3]:
     if st.button("Orders", use_container_width=True):
         st.switch_page("pages/order.py")
+with row1[4]:
+    if st.button("Order Item Destinations", use_container_width=True):
+        st.switch("pages/order_item_destination.py")
 
-row2 = st.columns(4)
+row2 = st.columns(5)
 with row2[0]:
     if st.button("Order Items", use_container_width=True):
         st.switch_page("pages/order_item.py")
@@ -48,8 +51,10 @@ with row2[2]:
 with row2[3]:
     if st.button("Shippers", use_container_width=True):
         st.switch_page("pages/shipper.py")
-
-row3 = st.columns(4)
+with row2[4]:
+    if st.button("Seasonal Notes", use_container_width=True):
+        st.switch_page("pages/seasonal_notes.py")
+row3 = st.columns(5)
 with row3[0]:
     if st.button("Suppliers", use_container_width=True):
         st.switch_page("pages/supplier.py")
@@ -62,8 +67,10 @@ with row3[2]:
 with row3[3]:
     if st.button("Plantings", use_container_width=True):
         st.switch_page("pages/planting.py")
-
-row4 = st.columns(4)
+with row3[4]:
+    if st.button("Locations", use_container_width=True):
+        st.switch_page("pages/locations.py")
+row4 = st.columns(5)
 with row4[0]:
     if st.button("Prices", use_container_width=True):
         st.switch_page("pages/price.py")
@@ -76,3 +83,6 @@ with row4[2]:
 with row4[3]:
     if st.button("Brokers", use_container_width=True):
         st.switch_page("pages/broker.py")
+with row4[4]:
+    if st.button("Users", use_container_width=True):
+        st.switch_page("pages/users.py")

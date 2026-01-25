@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy.dialects.mysql import TINYINT
 from database import Base
 
 
@@ -303,6 +304,63 @@ class OrderItem(Base):
     item = relationship("Item", back_populates="order_items")
     order_item_type = relationship("OrderItemType", back_populates="order_items")
     order_note = relationship("OrderNote", back_populates="order_items")
+
+
+class SeasonalNotes(Base):
+    __tablename__ = "T_SeasonalNotes"
+
+    NoteID = Column(Integer, primary_key=True, autoincrement=True)
+    ItemID = Column(Integer, nullable=False)
+    GrowingSeason = Column(Integer, nullable=False)
+    Greenhouse = Column(Integer, nullable=False)
+    Note = Column(Text, nullable=False)
+    LastUpdate = Column(DateTime, nullable=False)
+
+
+class Users(Base):
+    __tablename__ = "T_Users"
+    UserID = Column(Integer, primary_key=True)
+    Role = Column(Text)
+    PermissionLevel = Column(Text)
+    Email = Column(String(255))
+    Active = Column(TINYINT)
+    CreatedAt = Column(DateTime)
+    UpdatedAt = Column(DateTime)
+
+
+class Passwords(Base):
+    __tablename__ = "T_Passwords"
+
+    PasswordID = Column(Integer, primary_key=True, autoincrement=True)
+    UserID = Column(Integer, nullable=False)
+    PasswordHash = Column(String(255), nullable=False)
+    PasswordResetToken = Column(String(255), nullable=True)
+    PasswordResetExpiry = Column(DateTime, nullable=True)
+    LastLogin = Column(DateTime, nullable=True)
+    LastPasswordChange = Column(DateTime, nullable=True)
+    FailedLoginAttempts = Column(Integer, default=0)
+    AccountLockedUntil = Column(DateTime, nullable=True)
+    CreatedAt = Column(DateTime, default=datetime.utcnow, nullable=False)
+    UpdatedAt = Column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    )
+
+
+class OrderItemDestination(Base):
+    __tablename__ = "T_OrderItemDestination"
+
+    OrderItemDestinationID = Column(Integer, primary_key=True, autoincrement=True)
+    OrderItemID = Column(Integer, nullable=False)
+    Count = Column(Integer, nullable=False)
+    UnitID = Column(Integer, nullable=False)
+    LocationID = Column(Integer, nullable=False)
+
+
+class Location(Base):
+    __tablename__ = "T_Locations"
+
+    LocationID = Column(Integer, primary_key=True)
+    Location = Column(Text)
 
 
 class InventoryFullView(Base):

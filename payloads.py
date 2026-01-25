@@ -160,3 +160,46 @@ class UnitPayload(TypedDict, total=False):
 class UnitCategoryPayload(TypedDict, total=False):
     UnitCategoryID: int
     UnitCategory: str
+
+
+class UserPayload(TypedDict, total=False):
+    UserID: int
+    Role: str
+    PermissionLevel: str
+    Email: str
+    Active: bool
+
+
+class PasswordPayload(TypedDict, total=False):
+    PasswordID: int
+    UserID: int
+    PasswordHash: str
+    PasswordResetToken: str
+    PasswordResetExpiry: datetime
+    LastLogin: datetime
+    LastPasswordChange: datetime
+    FailedLoginAttempts: int
+    AccountLockedUntil: datetime
+    CreatedAt: datetime
+    UpdatedAt: datetime
+
+
+class SeasonalNotesPayload(TypedDict, total=False):
+    NoteID: int
+    ItemId: int
+    GrowingSeasonID: int
+    Greenhouse: bool
+    Note: str
+    LastUpdate: datetime
+
+
+class OrderItemDestinationPayload(TypedDict, total=False):
+    OrderItemID: int
+    Count: float
+    UnitID: int
+    LocationID: int
+
+
+class LocationPayload(TypedDict, total=False):
+    LocationID: int
+    Location: str

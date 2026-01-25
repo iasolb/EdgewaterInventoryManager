@@ -122,6 +122,12 @@ SELECT
     oi.OrderComments AS OrderItemComments,
     oi.Leftover,
     oi.ToOrder,
+
+    -- Order item destination fields
+
+    od.OrderItemDestinationID,
+    od.Count,
+    od.LocationID,
     
     -- Order fields
     o.OrderID,
@@ -187,8 +193,8 @@ LEFT JOIN T_OrderItemTypes oit ON oi.OrderItemTypeID = oit.OrderItemTypeID
 LEFT JOIN T_OrderNotes onote ON oi.OrderNote = onote.OrderNoteID
 LEFT JOIN T_Brokers b ON o.BrokerID = b.BrokerID
 LEFT JOIN T_Shippers s ON o.ShipperID = s.ShipperID
-LEFT JOIN T_Suppliers sup ON o.SupplierID = sup.SupplierID;
-
+LEFT JOIN T_Suppliers sup ON o.SupplierID = sup.SupplierID
+LEFT JOIN T_OrderItemDestination od ON oi.OrderItemID = od.OrderItemID; 
 -- Display created views
 SELECT 'SQL Views Created Successfully!' as Status;
 SHOW FULL TABLES WHERE Table_type = 'VIEW';
