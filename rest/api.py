@@ -33,6 +33,10 @@ from models import (
     Pitch,
     Order,
     OrderItem,
+    OrderItemDestination,
+    Users,
+    Location,
+    SeasonalNotes,
 )
 import streamlit as st
 import os
@@ -55,6 +59,10 @@ from payloads import (
     SupplierPayload,
     UnitPayload,
     UnitCategoryPayload,
+    OrderItemDestinationPayload,
+    SeasonalNotesPayload,
+    UserPayload,
+    LocationPayload,
 )
 
 
@@ -103,6 +111,10 @@ class EdgewaterAPI:
         self.pitch_cache = None
         self.order_cache = None
         self.order_item_cache = None
+        self.location_cache = None
+        self.user_cache = None
+        self.seasonal_notes_cache = None
+        self.order_item_destination_cache = None
         # TODO ask about data collection for sales
 
     def _get_base64_image(self, image_path):
@@ -1314,6 +1326,169 @@ class EdgewaterAPI:
             return result
         except Exception as e:
             logger.error(f"Error adding unit: {e}")
+            raise
+
+    """ Location """
+
+    def get_location_full(self) -> pd.DataFrame:
+        """
+        Get full location data
+        """
+        from models import Location
+
+        try:
+            result = self._get_all(model_class=Location)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Location List: {e}")
+            return pd.DataFrame()
+
+    def table_add_location(self, Location: str) -> Dict[str, Any]:
+        """Add new location record"""
+        try:
+            from models import Location as LOC
+            from payloads import LocationPayload
+
+            p: LocationPayload = {
+                "LocationID": self._get_next_id(LOC, "LocationID"),
+                "Location": Location,
+            }
+            result = self._create(model_class=LOC, data=p)
+            logger.info(f"Added location record {result['LocationID']}")
+            return result
+        except Exception as e:
+            logger.error(f"Error adding location: {e}")
+            raise
+
+    """ Users """
+
+    def get_user_full(self) -> pd.DataFrame:
+        """
+        Get full users data
+        """
+        from models import Users
+
+        try:
+            result = self._get_all(model_class=Users)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Users List: {e}")
+            return pd.DataFrame()
+
+    def table_add_user(
+        self,
+        Role: str,
+        Email: str,
+        PermissionLevel: Optional[str] = None,
+        Active: bool = True,
+    ) -> Dict[str, Any]:
+        """Add new user record"""
+        try:
+            from models import Users
+            from payloads import UserPayload
+
+            p: UserPayload = {
+                "UserID": self._get_next_id(Users, "UserID"),
+                "Role": Role,
+                "PermissionLevel": PermissionLevel,
+                "Email": Email,
+                "Active": 1 if Active else 0,
+                "CreatedAt": datetime.now(),
+                "UpdatedAt": datetime.now(),
+            }
+            result = self._create(model_class=Users, data=p)
+            logger.info(f"Added user record {result['UserID']}")
+            return result
+        except Exception as e:
+            logger.error(f"Error adding user: {e}")
+            raise
+
+    """ Seasonal Notes """
+
+    def get_seasonal_notes_full(self) -> pd.DataFrame:
+        """
+        Get full seasonal notes data
+        """
+        from models import SeasonalNotes
+
+        try:
+            result = self._get_all(model_class=SeasonalNotes)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Seasonal Notes List: {e}")
+            return pd.DataFrame()
+
+    def table_add_seasonal_note(
+        self,
+        ItemID: int,
+        GrowingSeasonID: int,
+        Greenhouse: int,
+        Note: str,
+        LastUpdate: Optional[datetime] = None,
+    ) -> Dict[str, Any]:
+        """Add new seasonal note record"""
+        try:
+            from models import SeasonalNotes
+            from payloads import SeasonalNotesPayload
+
+            p: SeasonalNotesPayload = {
+                "NoteID": self._get_next_id(SeasonalNotes, "NoteID"),
+                "ItemID": ItemID,
+                "GrowingSeasonID": GrowingSeasonID,
+                "Greenhouse": Greenhouse,
+                "Note": Note,
+                "LastUpdate": LastUpdate or datetime.now(),
+            }
+            result = self._create(model_class=SeasonalNotes, data=p)
+            logger.info(f"Added seasonal note record {result['NoteID']}")
+            return result
+        except Exception as e:
+            logger.error(f"Error adding seasonal note: {e}")
+            raise
+
+    """ Order Item Destination """
+
+    def get_order_item_destination_full(self) -> pd.DataFrame:
+        """
+        Get full order item destination data
+        """
+        from models import OrderItemDestination
+
+        try:
+            result = self._get_all(model_class=OrderItemDestination)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Item Destination List: {e}")
+            return pd.DataFrame()
+
+    def table_add_order_item_destination(
+        self,
+        OrderItemID: int,
+        Count: int,
+        UnitID: int,
+        LocationID: int,
+    ) -> Dict[str, Any]:
+        """Add new order item destination record"""
+        try:
+            from models import OrderItemDestination
+            from payloads import OrderItemDestinationPayload
+
+            p: OrderItemDestinationPayload = {
+                "OrderItemDestinationID": self._get_next_id(
+                    OrderItemDestination, "OrderItemDestinationID"
+                ),
+                "OrderItemID": OrderItemID,
+                "Count": Count,
+                "UnitID": UnitID,
+                "LocationID": LocationID,
+            }
+            result = self._create(model_class=OrderItemDestination, data=p)
+            logger.info(
+                f"Added order item destination record {result['OrderItemDestinationID']}"
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Error adding order item destination: {e}")
             raise
 
     """

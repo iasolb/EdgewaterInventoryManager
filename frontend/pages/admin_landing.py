@@ -36,7 +36,7 @@ with row1[3]:
         st.switch_page("pages/order.py")
 with row1[4]:
     if st.button("Order Item Destinations", use_container_width=True):
-        st.switch("pages/order_item_destination.py")
+        st.switch_page("pages/order_item_destination.py")
 
 row2 = st.columns(5)
 with row2[0]:

@@ -311,7 +311,7 @@ class SeasonalNotes(Base):
 
     NoteID = Column(Integer, primary_key=True, autoincrement=True)
     ItemID = Column(Integer, nullable=False)
-    GrowingSeason = Column(Integer, nullable=False)
+    GrowingSeasonID = Column(Integer, nullable=False)
     Greenhouse = Column(Integer, nullable=False)
     Note = Column(Text, nullable=False)
     LastUpdate = Column(DateTime, nullable=False)

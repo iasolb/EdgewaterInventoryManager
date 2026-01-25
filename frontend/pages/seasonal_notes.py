@@ -46,7 +46,7 @@ def create_seasonal_note_from_form(form_data: dict) -> Optional[dict]:
     try:
         result = api.table_add_seasonal_note(
             ItemID=int(form_data["ItemID"]),
-            GrowingSeason=int(form_data["GrowingSeason"]),
+            GrowingSeasonID=int(form_data["GrowingSeasonID"]),
             Greenhouse=int(form_data["Greenhouse"]),
             Note=str(form_data["Note"]),
             LastUpdate=form_data.get("LastUpdate") or datetime.now(),
@@ -63,7 +63,7 @@ def update_seasonal_note(note_id: int, updates: dict) -> bool:
     try:
         allowed_fields = {
             "ItemID",
-            "GrowingSeason",
+            "GrowingSeasonID",
             "Greenhouse",
             "Note",
             "LastUpdate",
@@ -192,7 +192,7 @@ with filter_col2:
     season_filter = st.multiselect(
         "Filter by Growing Season",
         options=sorted(
-            api.seasonal_notes_cache["GrowingSeason"].dropna().unique().tolist()
+            api.seasonal_notes_cache["GrowingSeasonID"].dropna().unique().tolist()
         ),
         key="season_filter",
     )
