@@ -94,6 +94,7 @@ class EdgewaterAPI:
         self.planting_view_cache = None
         self.label_view_cache = None
         self.order_view_cache = None
+        self.pitch_view_cache = None
         # single table cache
         self.broker_cache = None
         self.item_type_cache = None
@@ -222,7 +223,7 @@ class EdgewaterAPI:
                 f"error with action and cache function {action}, {target_cache}, {get_method} produce: {e}"
             )
 
-    # ==================== GENERIC CRUD OPERATIONS ====================
+    # ==================== GENERIC CRUD ====================
 
     def _get_all(self, model_class, filters: Optional[Dict] = None):
         """Generic method to get all records from a table"""
@@ -396,6 +397,352 @@ class EdgewaterAPI:
             raise
 
     """
+    Individual Table cache fillers (GET)
+    """
+
+    # ========= GET =========
+
+    def get_inventory_full(self) -> pd.DataFrame:
+        """
+        Get full inventory data from SQL view
+        """
+        from models import Inventory
+
+        try:
+            result = self._get_all(model_class=Inventory)
+            result = result.sort_values(by="DateCounted", ascending=False)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Inventory List: {e}")
+            return pd.DataFrame()
+
+    def get_broker_full(self) -> pd.DataFrame:
+        """
+        Get full brokers data
+        """
+        from models import Broker
+
+        try:
+            result = self._get_all(model_class=Broker)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Brokers List: {e}")
+            return pd.DataFrame()
+
+    def get_growing_season_full(self) -> pd.DataFrame:
+        """
+        Get full growing season data
+        """
+        from models import GrowingSeason
+
+        try:
+            result = self._get_all(model_class=GrowingSeason)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Growing Season List: {e}")
+            return pd.DataFrame()
+
+    def get_item_full(self) -> pd.DataFrame:
+        """
+        Get full items data
+        """
+        from models import Item
+
+        try:
+            result = self._get_all(model_class=Item)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Items List: {e}")
+            return pd.DataFrame()
+
+    def get_item_type_full(self) -> pd.DataFrame:
+        """
+        Get full item type data
+        """
+        from models import ItemType
+
+        try:
+            result = self._get_all(model_class=ItemType)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Item Type List: {e}")
+            return pd.DataFrame()
+
+    def get_order_full(self) -> pd.DataFrame:
+        """
+        Get full orders data
+        """
+        from models import Order
+
+        try:
+            result = self._get_all(model_class=Order)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Orders List: {e}")
+            return pd.DataFrame()
+
+    def get_order_item_full(self) -> pd.DataFrame:
+        """
+        Get full order items data
+        """
+        from models import OrderItem
+
+        try:
+            result = self._get_all(model_class=OrderItem)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Items List: {e}")
+            return pd.DataFrame()
+
+    def get_order_item_type_full(self) -> pd.DataFrame:
+        """
+        Get full order item type data
+        """
+        from models import OrderItemType
+
+        try:
+            result = self._get_all(model_class=OrderItemType)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Item Type List: {e}")
+            return pd.DataFrame()
+
+    def get_order_note_full(self) -> pd.DataFrame:
+        """
+        Get full order notes data
+        """
+        from models import OrderNote
+
+        try:
+            result = self._get_all(model_class=OrderNote)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Notes List: {e}")
+            return pd.DataFrame()
+
+    def get_pitch_full(self) -> pd.DataFrame:
+        """
+        Get full pitch data
+        """
+        from models import Pitch
+
+        try:
+            result = self._get_all(model_class=Pitch)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Pitch List: {e}")
+            return pd.DataFrame()
+
+    def get_planting_full(self) -> pd.DataFrame:
+        """
+        Get full plantings data
+        """
+        from models import Planting
+
+        try:
+            result = self._get_all(model_class=Planting)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Plantings List: {e}")
+            return pd.DataFrame()
+
+    def get_price_full(self) -> pd.DataFrame:
+        """
+        Get full prices data
+        """
+        from models import Price
+
+        try:
+            result = self._get_all(model_class=Price)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Prices List: {e}")
+            return pd.DataFrame()
+
+    def get_shipper_full(self) -> pd.DataFrame:
+        """
+        Get full shippers data
+        """
+        from models import Shipper
+
+        try:
+            result = self._get_all(model_class=Shipper)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Shippers List: {e}")
+            return pd.DataFrame()
+
+    def get_supplier_full(self) -> pd.DataFrame:
+        """
+        Get full suppliers data
+        """
+        from models import Supplier
+
+        try:
+            result = self._get_all(model_class=Supplier)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Suppliers List: {e}")
+            return pd.DataFrame()
+
+    def get_unit_category_full(self) -> pd.DataFrame:
+        """
+        Get full unit category data
+        """
+        from models import UnitCategory
+
+        try:
+            result = self._get_all(model_class=UnitCategory)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Unit Category List: {e}")
+            return pd.DataFrame()
+
+    def get_unit_full(self) -> pd.DataFrame:
+        """
+        Get full units data
+        """
+        from models import Unit
+
+        try:
+            result = self._get_all(model_class=Unit)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Units List: {e}")
+            return pd.DataFrame()
+
+    def get_location_full(self) -> pd.DataFrame:
+        """
+        Get full location data
+        """
+        from models import Location
+
+        try:
+            result = self._get_all(model_class=Location)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Location List: {e}")
+            return pd.DataFrame()
+
+    def get_user_full(self) -> pd.DataFrame:
+        """
+        Get full users data
+        """
+        from models import Users
+
+        try:
+            result = self._get_all(model_class=Users)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Users List: {e}")
+            return pd.DataFrame()
+
+    def get_seasonal_notes_full(self) -> pd.DataFrame:
+        """
+        Get full seasonal notes data
+        """
+        from models import SeasonalNotes
+
+        try:
+            result = self._get_all(model_class=SeasonalNotes)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Seasonal Notes List: {e}")
+            return pd.DataFrame()
+
+    def get_order_item_destination_full(self) -> pd.DataFrame:
+        """
+        Get full order item destination data
+        """
+        from models import OrderItemDestination
+
+        try:
+            result = self._get_all(model_class=OrderItemDestination)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Order Item Destination List: {e}")
+            return pd.DataFrame()
+
+    """
+    Multi Table cache fillers (GET, views)
+    """
+
+    def get_inventory_view_full(self) -> pd.DataFrame:
+        """
+        Get full inventory data from SQL view
+        """
+        from models import InventoryFullView
+
+        try:
+            result = self._get_all(model_class=InventoryFullView)
+            result = result.sort_values(by="DateCounted", ascending=False)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Inventory List: {e}")
+            return pd.DataFrame()
+
+    def get_plantings_view_full(self) -> pd.DataFrame:
+        """
+        Get full plantings data from SQL view
+        """
+        from models import PlantingsFullView
+
+        try:
+            result = self._get_all(model_class=PlantingsFullView)
+            result = result.sort_values(
+                by=["DatePlanted", "PlantingID"],
+                ascending=False,
+            )
+
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Plantings List: {e}")
+            return pd.DataFrame()
+
+    def get_orders_view_full(self) -> pd.DataFrame:
+        """
+        Get full orders data from SQL view
+        """
+        from models import OrdersFullView
+
+        try:
+            result = self._get_all(model_class=OrdersFullView)
+            result = result.sort_values(
+                by=["DatePlaced", "DateDue"],
+                ascending=False,
+            )
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Orders Data: {e}")
+            return pd.DataFrame()
+
+    def get_label_view_full(self) -> pd.DataFrame:
+        """
+        Get full label data from SQL view
+        """
+        from models import LabelDataFullView
+
+        try:
+            result = self._get_all(model_class=LabelDataFullView)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Label Data: {e}")
+            return pd.DataFrame()
+
+    def get_pitch_view(self) -> pd.DataFrame:
+        """
+        Get full pitch from SQL view
+        """
+        from models import PitchFullView
+
+        try:
+            result = self._get_all(model_class=PitchFullView)
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving Label Data: {e}")
+            return pd.DataFrame()
+
+    """
     MISC TOOLBOX (may become separate module)
     """
 
@@ -435,24 +782,14 @@ class EdgewaterAPI:
         last_id = self._get_all(model_class=model_class)[id_column].max()
         return last_id + 1
 
+    # =========== MAJOR WORKFLOW METHODS =============
     """
-    SERVE INVENTORY MANAGEMENT VIEW (GET)
+    Serving Inventory Manager
+
+    - data routing from view
+    - permission checks
+    - routes edits to appropriate admin-level action
     """
-
-    # GET
-    def _get_inventory_view_full(self) -> pd.DataFrame:
-        """
-        Get full inventory data from SQL view
-        """
-        from models import InventoryFullView
-
-        try:
-            result = self._get_all(model_class=InventoryFullView)
-            result = result.sort_values(by="DateCounted", ascending=False)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Inventory List: {e}")
-            return pd.DataFrame()
 
     def get_inventory_view_display(self) -> pd.DataFrame:
         try:
@@ -480,27 +817,12 @@ class EdgewaterAPI:
             return pd.DataFrame()
 
     """
-    SERVE PLANTINGS VIEW (GET)
+    Serving Plantings Tracker
+
+    - data routing from view
+    - permission checks
+    - routes edits to appropriate admin-level action
     """
-
-    # GET
-    def _get_plantings_view_full(self) -> pd.DataFrame:
-        """
-        Get full plantings data from SQL view
-        """
-        from models import PlantingsFullView
-
-        try:
-            result = self._get_all(model_class=PlantingsFullView)
-            result = result.sort_values(
-                by=["DatePlanted", "PlantingID"],
-                ascending=False,
-            )
-
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Plantings List: {e}")
-            return pd.DataFrame()
 
     def get_plantings_display(self) -> pd.DataFrame:
         try:
@@ -528,22 +850,12 @@ class EdgewaterAPI:
             return pd.DataFrame()
 
     """
-    SERVE LABEL GENERATING VIEW (GET)
+    Serving Label Generation:
+
+    - data routing from view
+    - permission checks
+    - routes edits to appropriate admin-level action
     """
-
-    # GET
-    def _get_label_view_full(self) -> pd.DataFrame:
-        """
-        Get full label data from SQL view
-        """
-        from models import LabelDataFullView
-
-        try:
-            result = self._get_all(model_class=LabelDataFullView)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Label Data: {e}")
-            return pd.DataFrame()
 
     def get_label_display(
         self, item_id: Optional[int] = None
@@ -570,26 +882,12 @@ class EdgewaterAPI:
             return pd.DataFrame(), pd.DataFrame()
 
     """
-    SERVE ORDER TRACKING VIEW (GET)
+    Serving Order Tracker
+
+    - data routing from view
+    - permission checks
+    - routes edits to appropriate admin-level action
     """
-
-    # GET
-    def _get_orders_view_full(self) -> pd.DataFrame:
-        """
-        Get full orders data from SQL view
-        """
-        from models import OrdersFullView
-
-        try:
-            result = self._get_all(model_class=OrdersFullView)
-            result = result.sort_values(
-                by=["DatePlaced", "DateDue"],
-                ascending=False,
-            )
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Orders Data: {e}")
-            return pd.DataFrame()
 
     def get_orders_display(self) -> pd.DataFrame:
         try:
@@ -669,25 +967,10 @@ class EdgewaterAPI:
             return pd.DataFrame()
 
     """
-    CREATE METHODS (POST)
+    Admin Level Actions (POST, UPDATE, DELETE) 
     """
 
-    """ Inventory """
-
-    def get_inventory_full(self) -> pd.DataFrame:
-        """
-        Get full inventory data from SQL view
-        """
-        from models import Inventory
-
-        try:
-            result = self._get_all(model_class=Inventory)
-            result = result.sort_values(by="DateCounted", ascending=False)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Inventory List: {e}")
-            return pd.DataFrame()
-
+    # ========== POST ========
     def table_add_inventory(
         self,
         ItemID: int,
@@ -712,21 +995,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding inventory: {e}")
             raise
 
-    """ Brokers """
-
-    def get_broker_full(self) -> pd.DataFrame:
-        """
-        Get full brokers data
-        """
-        from models import Broker
-
-        try:
-            result = self._get_all(model_class=Broker)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Brokers List: {e}")
-            return pd.DataFrame()
-
     def table_add_broker(
         self, BrokerName: str, BrokerComments: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -743,21 +1011,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding broker: {e}")
             raise
-
-    """ GrowingSeason """
-
-    def get_growing_season_full(self) -> pd.DataFrame:
-        """
-        Get full growing season data
-        """
-        from models import GrowingSeason
-
-        try:
-            result = self._get_all(model_class=GrowingSeason)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Growing Season List: {e}")
-            return pd.DataFrame()
 
     def table_add_growing_season(
         self,
@@ -779,21 +1032,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding growing season: {e}")
             raise
-
-    """ Items """
-
-    def get_item_full(self) -> pd.DataFrame:
-        """
-        Get full items data
-        """
-        from models import Item
-
-        try:
-            result = self._get_all(model_class=Item)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Items List: {e}")
-            return pd.DataFrame()
 
     def table_add_item(
         self,
@@ -840,21 +1078,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding item: {e}")
             raise
 
-    """ ItemType """
-
-    def get_item_type_full(self) -> pd.DataFrame:
-        """
-        Get full item type data
-        """
-        from models import ItemType
-
-        try:
-            result = self._get_all(model_class=ItemType)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Item Type List: {e}")
-            return pd.DataFrame()
-
     def table_add_item_type(self, Type: str) -> Dict[str, Any]:
         """Add new item type record"""
         try:
@@ -868,21 +1091,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding item type: {e}")
             raise
-
-    """ Orders """
-
-    def get_order_full(self) -> pd.DataFrame:
-        """
-        Get full orders data
-        """
-        from models import Order
-
-        try:
-            result = self._get_all(model_class=Order)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Orders List: {e}")
-            return pd.DataFrame()
 
     def table_add_order(
         self,
@@ -923,21 +1131,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding order: {e}")
             raise
 
-    """ OrderItems """
-
-    def get_order_item_full(self) -> pd.DataFrame:
-        """
-        Get full order items data
-        """
-        from models import OrderItem
-
-        try:
-            result = self._get_all(model_class=OrderItem)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Order Items List: {e}")
-            return pd.DataFrame()
-
     def table_add_order_item(
         self,
         OrderID: int,
@@ -977,21 +1170,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding order item: {e}")
             raise
 
-    """ OrderItemTypes """
-
-    def get_order_item_type_full(self) -> pd.DataFrame:
-        """
-        Get full order item type data
-        """
-        from models import OrderItemType
-
-        try:
-            result = self._get_all(model_class=OrderItemType)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Order Item Type List: {e}")
-            return pd.DataFrame()
-
     def table_add_order_item_type(self, OrderItemType: str) -> Dict[str, Any]:
         """Add new order item type record"""
         try:
@@ -1006,21 +1184,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding order item type: {e}")
             raise
 
-    """ OrderNotes """
-
-    def get_order_note_full(self) -> pd.DataFrame:
-        """
-        Get full order notes data
-        """
-        from models import OrderNote
-
-        try:
-            result = self._get_all(model_class=OrderNote)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Order Notes List: {e}")
-            return pd.DataFrame()
-
     def table_add_order_note(self, OrderNote: str) -> Dict[str, Any]:
         """Add new order note record"""
         try:
@@ -1034,21 +1197,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding order note: {e}")
             raise
-
-    """ Pitch """
-
-    def get_pitch_full(self) -> pd.DataFrame:
-        """
-        Get full pitch data
-        """
-        from models import Pitch
-
-        try:
-            result = self._get_all(model_class=Pitch)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Pitch List: {e}")
-            return pd.DataFrame()
 
     def table_add_pitch(
         self,
@@ -1077,21 +1225,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding pitch: {e}")
             raise
 
-    """ Plantings """
-
-    def get_planting_full(self) -> pd.DataFrame:
-        """
-        Get full plantings data
-        """
-        from models import Planting
-
-        try:
-            result = self._get_all(model_class=Planting)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Plantings List: {e}")
-            return pd.DataFrame()
-
     def table_add_planting(
         self,
         ItemID: int,
@@ -1117,21 +1250,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding planting: {e}")
             raise
 
-    """ Prices """
-
-    def get_price_full(self) -> pd.DataFrame:
-        """
-        Get full prices data
-        """
-        from models import Price
-
-        try:
-            result = self._get_all(model_class=Price)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Prices List: {e}")
-            return pd.DataFrame()
-
     def table_add_price(
         self,
         ItemID: int,
@@ -1154,21 +1272,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding price: {e}")
             raise
-
-    """ Shippers """
-
-    def get_shipper_full(self) -> pd.DataFrame:
-        """
-        Get full shippers data
-        """
-        from models import Shipper
-
-        try:
-            result = self._get_all(model_class=Shipper)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Shippers List: {e}")
-            return pd.DataFrame()
 
     def table_add_shipper(
         self,
@@ -1204,21 +1307,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding shipper: {e}")
             raise
-
-    """ Suppliers """
-
-    def get_supplier_full(self) -> pd.DataFrame:
-        """
-        Get full suppliers data
-        """
-        from models import Supplier
-
-        try:
-            result = self._get_all(model_class=Supplier)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Suppliers List: {e}")
-            return pd.DataFrame()
 
     def table_add_supplier(
         self,
@@ -1263,21 +1351,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding supplier: {e}")
             raise
 
-    """ UnitCategory """
-
-    def get_unit_category_full(self) -> pd.DataFrame:
-        """
-        Get full unit category data
-        """
-        from models import UnitCategory
-
-        try:
-            result = self._get_all(model_class=UnitCategory)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Unit Category List: {e}")
-            return pd.DataFrame()
-
     def table_add_unit_category(self, UnitCategory: str) -> Dict[str, Any]:
         """Add new unit category record"""
         try:
@@ -1291,21 +1364,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding unit category: {e}")
             raise
-
-    """ Units """
-
-    def get_unit_full(self) -> pd.DataFrame:
-        """
-        Get full units data
-        """
-        from models import Unit
-
-        try:
-            result = self._get_all(model_class=Unit)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Units List: {e}")
-            return pd.DataFrame()
 
     def table_add_unit(
         self,
@@ -1328,21 +1386,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding unit: {e}")
             raise
 
-    """ Location """
-
-    def get_location_full(self) -> pd.DataFrame:
-        """
-        Get full location data
-        """
-        from models import Location
-
-        try:
-            result = self._get_all(model_class=Location)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Location List: {e}")
-            return pd.DataFrame()
-
     def table_add_location(self, Location: str) -> Dict[str, Any]:
         """Add new location record"""
         try:
@@ -1359,21 +1402,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding location: {e}")
             raise
-
-    """ Users """
-
-    def get_user_full(self) -> pd.DataFrame:
-        """
-        Get full users data
-        """
-        from models import Users
-
-        try:
-            result = self._get_all(model_class=Users)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Users List: {e}")
-            return pd.DataFrame()
 
     def table_add_user(
         self,
@@ -1403,21 +1431,6 @@ class EdgewaterAPI:
             logger.error(f"Error adding user: {e}")
             raise
 
-    """ Seasonal Notes """
-
-    def get_seasonal_notes_full(self) -> pd.DataFrame:
-        """
-        Get full seasonal notes data
-        """
-        from models import SeasonalNotes
-
-        try:
-            result = self._get_all(model_class=SeasonalNotes)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Seasonal Notes List: {e}")
-            return pd.DataFrame()
-
     def table_add_seasonal_note(
         self,
         ItemID: int,
@@ -1445,21 +1458,6 @@ class EdgewaterAPI:
         except Exception as e:
             logger.error(f"Error adding seasonal note: {e}")
             raise
-
-    """ Order Item Destination """
-
-    def get_order_item_destination_full(self) -> pd.DataFrame:
-        """
-        Get full order item destination data
-        """
-        from models import OrderItemDestination
-
-        try:
-            result = self._get_all(model_class=OrderItemDestination)
-            return result
-        except Exception as e:
-            logger.error(f"Error retrieving Order Item Destination List: {e}")
-            return pd.DataFrame()
 
     def table_add_order_item_destination(
         self,
@@ -1491,9 +1489,7 @@ class EdgewaterAPI:
             logger.error(f"Error adding order item destination: {e}")
             raise
 
-    """
-    Updating Routing
-    """
+    # ========== UPDATE ========
 
     def generic_update(
         self,

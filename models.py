@@ -363,6 +363,11 @@ class Location(Base):
     Location = Column(Text)
 
 
+"""
+ Views!
+"""
+
+
 class InventoryFullView(Base):
     """v_inventory_full - SQL View for complete inventory data"""
 
@@ -386,6 +391,7 @@ class InventoryFullView(Base):
     LabelDescription = Column(Text)
     Definition = Column(Text)
     PictureLink = Column(Text)
+    PictureLayout = Column(Text)
     SunConditions = Column(Text)
     TypeID = Column(Integer)
 
@@ -421,8 +427,14 @@ class PlantingsFullView(Base):
     Variety = Column(Text)
     Color = Column(Text)
     Inactive = Column(Boolean)
+    ShouldStock = Column(Boolean)
     SunConditions = Column(Text)
     TypeID = Column(Integer)
+    Definition = Column(Text)
+    LabelDescription = Column(Text)
+
+    # ItemType fields
+    Type = Column(Text)
 
     # Unit fields
     UnitID = Column(Integer)
@@ -433,32 +445,12 @@ class PlantingsFullView(Base):
     # UnitCategory fields
     UnitCategory = Column(Text)
 
-
-class LabelDataFullView(Base):
-    """v_label_data_full - SQL View for label data"""
-
-    __tablename__ = "v_label_data_full"
-
-    # Primary key
-    ItemID = Column(Integer, primary_key=True)
-
-    # Item fields
-    Item = Column(Text)
-    Variety = Column(Text)
-    Color = Column(Text)
-    SunConditions = Column(Text)
-    LabelDescription = Column(Text)
-    Definition = Column(Text)
-    TypeID = Column(Integer)
-
-    # ItemType fields
-    Type = Column(Text)
-
-    # Price fields
-    PriceID = Column(Integer)
-    UnitID = Column(Integer)
-    UnitPrice = Column(Float)
-    Year = Column(Text)
+    # SeasonalNotes fields (from LEFT JOIN)
+    NoteID = Column(Integer)
+    GrowingSeasonID = Column(Integer)
+    Greenhouse = Column(Boolean)
+    SeasonalNote = Column(Text)
+    NoteLastUpdate = Column(DateTime)
 
 
 class OrdersFullView(Base):
@@ -475,23 +467,46 @@ class OrdersFullView(Base):
     UnitPrice = Column(Float)
     NumberOfUnits = Column(Text)
     Received = Column(Boolean)
-    OrderNoteCode = Column(Integer)
+    OrderNoteCode = Column(
+        Integer
+    )  # This is the integer ID stored in T_OrderItems.OrderNote
     OrderItemComments = Column(Text)
     Leftover = Column(Text)
     ToOrder = Column(Text)
     ItemID = Column(Integer)
 
+    # Item fields
+    Item = Column(Text)
+    Variety = Column(Text)
+    Color = Column(Text)
+    ItemTypeName = Column(Text)
+
+    # OrderItemDestination fields
+    OrderItemDestinationID = Column(Integer)
+    DestinationCount = Column(Integer)
+    DestinationUnitID = Column(Integer)
+    DestinationUnitType = Column(Text)
+    DestinationUnitSize = Column(Text)
+
+    # Location fields
+    LocationID = Column(Integer)
+    LocationName = Column(Text)
+
     # Order fields
     OrderID = Column(Integer)
     DatePlaced = Column(DateTime)
     DateReceived = Column(DateTime)
+    DateDue = Column(DateTime)
     OrderNumber = Column(Text)
     TrackingNumber = Column(Text)
     OrderComments = Column(Text)
+    TotalCost = Column(Float)
     GrowingSeason = Column(Text)
     GrowingSeasonID = Column(Integer)
-    DateDue = Column(DateTime)
-    TotalCost = Column(Float)
+
+    # GrowingSeason fields
+    SeasonStartDate = Column(DateTime)
+    SeasonEndDate = Column(DateTime)
 
     # OrderItemType fields
     OrderItemType = Column(Text)
@@ -499,7 +514,9 @@ class OrdersFullView(Base):
 
     # OrderNote fields
     OrderNoteID = Column(Integer)
-    OrderNoteDecode = Column(Text)
+    OrderNoteDecode = Column(
+        Text
+    )  # This is the actual text from T_OrderNotes.OrderNote
 
     # Broker fields
     BrokerID = Column(Integer)
@@ -535,3 +552,73 @@ class OrdersFullView(Base):
     SupplierZip = Column(Text)
     SupplierComments = Column(Text)
     SupplierType = Column(Text)
+
+
+class LabelDataFullView(Base):
+    """v_label_data_full - SQL View for label data"""
+
+    __tablename__ = "v_label_data_full"
+
+    # Primary key
+    ItemID = Column(Integer, primary_key=True)
+
+    # Item fields
+    Item = Column(Text)
+    Variety = Column(Text)
+    Color = Column(Text)
+    SunConditions = Column(Text)
+    LabelDescription = Column(Text)
+    Definition = Column(Text)
+    PictureLink = Column(Text)
+    PictureLayout = Column(Text)
+    Inactive = Column(Boolean)
+    ShouldStock = Column(Boolean)
+    TypeID = Column(Integer)
+
+    # ItemType fields
+    Type = Column(Text)
+
+    # Price fields
+    PriceID = Column(Integer)
+    UnitID = Column(Integer)
+    UnitPrice = Column(Float)
+    Year = Column(Text)
+
+    # Unit fields
+    UnitType = Column(Text)
+    UnitSize = Column(Text)
+    UnitCategoryID = Column(Integer)
+
+    # UnitCategory fields
+    UnitCategory = Column(Text)
+
+
+class PitchFullView(Base):
+    """v_pitch_full - SQL View for complete pitch (discarded items) data"""
+
+    __tablename__ = "v_pitch_full"
+
+    # Primary key
+    PitchID = Column(Integer, primary_key=True)
+
+    # Pitch fields
+    DatePitched = Column(DateTime)
+    NumberOfUnits = Column(Text)
+    PitchComments = Column(Text)
+    PitchReason = Column(Text)
+
+    # Item fields
+    ItemID = Column(Integer)
+    Item = Column(Text)
+    Variety = Column(Text)
+    Color = Column(Text)
+    ItemTypeName = Column(Text)
+    ShouldStock = Column(Boolean)
+
+    # Unit fields
+    UnitID = Column(Integer)
+    UnitType = Column(Text)
+    UnitSize = Column(Text)
+
+    # UnitCategory fields
+    UnitCategory = Column(Text)

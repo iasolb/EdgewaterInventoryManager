@@ -11,7 +11,7 @@ COPY database/CreateSchema.sql /docker-entrypoint-initdb.d/01-schema.sql
 COPY database/LoadData.sql /docker-entrypoint-initdb.d/02-load-data.sql
 COPY database/CleanupOrphans.sql /docker-entrypoint-initdb.d/03-cleanup-orphans.sql
 COPY database/Relationships.sql /docker-entrypoint-initdb.d/04-relationships.sql
-# COPY database/views.sql /docker-entrypoint-initdb.d/05-views.sql
+COPY database/views.sql /docker-entrypoint-initdb.d/05-views.sql
 # Copy CSV files for import
 COPY database/datasource/*.csv /var/lib/mysql-files/
 

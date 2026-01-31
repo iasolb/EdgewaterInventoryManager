@@ -203,3 +203,204 @@ class OrderItemDestinationPayload(TypedDict, total=False):
 class LocationPayload(TypedDict, total=False):
     LocationID: int
     Location: str
+
+
+class InventoryFullViewPayload(TypedDict, total=False):
+    """Payload for v_inventory_full view"""
+
+    InventoryID: int
+    DateCounted: datetime
+    NumberOfUnits: str
+    InventoryComments: str
+    # Item fields
+    ItemID: int
+    Item: str
+    Variety: str
+    Color: str
+    Inactive: bool
+    ShouldStock: bool
+    LabelDescription: str
+    Definition: str
+    PictureLink: str
+    PictureLayout: str
+    SunConditions: str
+    TypeID: int
+    # ItemType fields
+    Type: str
+    # Unit fields
+    UnitID: int
+    UnitType: str
+    UnitSize: str
+    UnitCategoryID: int
+    # UnitCategory fields
+    UnitCategory: str
+
+
+class PlantingsFullViewPayload(TypedDict, total=False):
+    """Payload for v_plantings_full view"""
+
+    PlantingID: int
+    DatePlanted: datetime
+    NumberOfUnits: str
+    PlantingComments: str
+    # Item fields
+    ItemID: int
+    Item: str
+    Variety: str
+    Color: str
+    Inactive: bool
+    ShouldStock: bool
+    SunConditions: str
+    TypeID: int
+    Definition: str
+    LabelDescription: str
+    # ItemType fields
+    Type: str
+    # Unit fields
+    UnitID: int
+    UnitType: str
+    UnitSize: str
+    UnitCategoryID: int
+    # UnitCategory fields
+    UnitCategory: str
+    # SeasonalNotes fields
+    NoteID: int
+    GrowingSeasonID: int
+    Greenhouse: bool
+    SeasonalNote: str
+    NoteLastUpdate: datetime
+
+
+class OrdersFullViewPayload(TypedDict, total=False):
+    """Payload for v_orders_full view"""
+
+    OrderItemID: int
+    ItemCode: str
+    Unit: str
+    UnitPrice: float
+    NumberOfUnits: str
+    Received: bool
+    OrderNoteCode: int  # Integer ID from T_OrderItems.OrderNote
+    OrderItemComments: str
+    Leftover: str
+    ToOrder: str
+    ItemID: int
+    # Item fields
+    Item: str
+    Variety: str
+    Color: str
+    ItemTypeName: str
+    # OrderItemDestination fields
+    OrderItemDestinationID: int
+    DestinationCount: int
+    DestinationUnitID: int
+    DestinationUnitType: str
+    DestinationUnitSize: str
+    # Location fields
+    LocationID: int
+    LocationName: str
+    # Order fields
+    OrderID: int
+    DatePlaced: datetime
+    DateReceived: datetime
+    DateDue: datetime
+    OrderNumber: str
+    TrackingNumber: str
+    OrderComments: str
+    TotalCost: float
+    GrowingSeason: str
+    GrowingSeasonID: int
+    # GrowingSeason fields
+    SeasonStartDate: datetime
+    SeasonEndDate: datetime
+    # OrderItemType fields
+    OrderItemType: str
+    OrderItemTypeID: int
+    # OrderNote fields
+    OrderNoteID: int
+    OrderNoteDecode: str  # Actual text from T_OrderNotes.OrderNote
+    # Broker fields
+    BrokerID: int
+    Broker: str
+    BrokerComments: str
+    # Shipper fields
+    ShipperID: int
+    Shipper: str
+    ShipperAccountNumber: str
+    ShipperContactPerson: str
+    ShipperAddress1: str
+    ShipperAddress2: str
+    ShipperCity: str
+    ShipperState: str
+    ShipperZip: str
+    ShipperPhone: str
+    ShipperComments: str
+    # Supplier fields
+    SupplierID: int
+    Supplier: str
+    SupplierAccountNumber: str
+    SupplierPhone: str
+    SupplierFax: str
+    WebSite: str
+    Email: str
+    SupplierContactPerson: str
+    SupplierAddress1: str
+    SupplierAddress2: str
+    SupplierCity: str
+    SupplierState: str
+    SupplierZip: str
+    SupplierComments: str
+    SupplierType: str
+
+
+class LabelDataFullViewPayload(TypedDict, total=False):
+    """Payload for v_label_data_full view"""
+
+    ItemID: int
+    Item: str
+    Variety: str
+    Color: str
+    SunConditions: str
+    LabelDescription: str
+    Definition: str
+    PictureLink: str
+    PictureLayout: str
+    Inactive: bool
+    ShouldStock: bool
+    TypeID: int
+    # ItemType fields
+    Type: str
+    # Price fields
+    PriceID: int
+    UnitID: int
+    UnitPrice: float
+    Year: str
+    # Unit fields
+    UnitType: str
+    UnitSize: str
+    UnitCategoryID: int
+    # UnitCategory fields
+    UnitCategory: str
+
+
+class PitchFullViewPayload(TypedDict, total=False):
+    """Payload for v_pitch_full view"""
+
+    PitchID: int
+    DatePitched: datetime
+    NumberOfUnits: str
+    PitchComments: str
+    PitchReason: str
+    # Item fields
+    ItemID: int
+    Item: str
+    Variety: str
+    Color: str
+    ItemTypeName: str
+    ShouldStock: bool
+    # Unit fields
+    UnitID: int
+    UnitType: str
+    UnitSize: str
+    # UnitCategory fields
+    UnitCategory: str

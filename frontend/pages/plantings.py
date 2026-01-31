@@ -16,7 +16,7 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-api.reset_cache("planting_view_cache", api._get_plantings_view_full)
+api.reset_cache("planting_view_cache", api.get_plantings_view_full)
 st.set_page_config(
     page_title="Plantings",
     page_icon="🌱",

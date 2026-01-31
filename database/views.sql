@@ -1,19 +1,17 @@
 -- views.sql
 -- SQL Views for Edgewater Farm Inventory Management System
+-- Building one at a time to identify errors
 
 USE `EdgewaterMaster`;
 
--- ==================== INVENTORY VIEW ====================
+-- ==================== VIEW 1: INVENTORY ====================
 DROP VIEW IF EXISTS `v_inventory_full`;
 CREATE VIEW `v_inventory_full` AS
 SELECT 
-    -- Inventory fields
     inv.InventoryID,
     inv.DateCounted,
     inv.NumberOfUnits,
     inv.InventoryComments,
-    
-    -- Item fields
     i.ItemID,
     i.Item,
     i.Variety,
@@ -23,95 +21,65 @@ SELECT
     i.LabelDescription,
     i.Definition,
     i.PictureLink,
+    i.PictureLayout,
     i.SunConditions,
     i.TypeID,
-    
-    -- ItemType fields
     it.Type,
-    
-    -- Unit fields
     u.UnitID,
     u.UnitType,
     u.UnitSize,
     u.UnitCategoryID,
-    
-    -- UnitCategory fields
     uc.UnitCategory
-    
 FROM T_Inventory inv
 LEFT JOIN T_Items i ON inv.ItemID = i.ItemID
 LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
 LEFT JOIN T_Units u ON inv.UnitID = u.UnitID
 LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID;
 
+SELECT 'v_inventory_full created' AS Status;
 
--- ==================== PLANTINGS VIEW ====================
+-- ==================== VIEW 2: PLANTINGS ====================
 DROP VIEW IF EXISTS `v_plantings_full`;
 CREATE VIEW `v_plantings_full` AS
 SELECT 
-    -- Planting fields
     p.PlantingID,
     p.DatePlanted,
     p.NumberOfUnits,
     p.PlantingComments,
-    
-    -- Item fields
     i.ItemID,
     i.Item,
     i.Variety,
     i.Color,
     i.Inactive,
+    i.ShouldStock,
     i.SunConditions,
     i.TypeID,
-    
-    -- Unit fields
+    i.Definition,
+    i.LabelDescription,
+    it.Type,
     u.UnitID,
     u.UnitType,
     u.UnitSize,
     u.UnitCategoryID,
-    
-    -- UnitCategory fields
-    uc.UnitCategory
-    
+    uc.UnitCategory,
+    sn.NoteID,
+    sn.GrowingSeasonID, 
+    sn.Greenhouse,
+    sn.Note AS SeasonalNote,
+    sn.LastUpdate AS NoteLastUpdate
 FROM T_Plantings p
 LEFT JOIN T_Items i ON p.ItemID = i.ItemID
+LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
 LEFT JOIN T_Units u ON p.UnitID = u.UnitID
-LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID;
+LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID
+LEFT JOIN T_SeasonalNotes sn ON p.ItemID = sn.ItemID;
 
+SELECT 'v_plantings_full created' AS Status;
 
--- ==================== LABELS VIEW ====================
-DROP VIEW IF EXISTS `v_label_data_full`;
-CREATE VIEW `v_label_data_full` AS
-SELECT 
-    -- Item fields
-    i.ItemID,
-    i.Item,
-    i.Variety,
-    i.Color,
-    i.SunConditions,
-    i.LabelDescription,
-    i.Definition,
-    i.TypeID,
-    
-    -- ItemType fields
-    it.Type,
-    
-    -- Price fields
-    pr.PriceID,
-    pr.UnitID,
-    pr.UnitPrice,
-    pr.Year
-    
-FROM T_Items i
-LEFT JOIN T_Prices pr ON i.ItemID = pr.ItemID
-LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID;
-
-
--- ==================== ORDERS VIEW ====================
+-- ==================== VIEW 3: ORDERS ====================
 DROP VIEW IF EXISTS `v_orders_full`;
 CREATE VIEW `v_orders_full` AS
 SELECT 
-    -- OrderItem fields
     oi.OrderItemID,
     oi.ItemCode,
     oi.Unit,
@@ -122,39 +90,37 @@ SELECT
     oi.OrderComments AS OrderItemComments,
     oi.Leftover,
     oi.ToOrder,
-
-    -- Order item destination fields
-
+    oi.ItemID,
+    i.Item,
+    i.Variety,
+    i.Color,
+    it.Type AS ItemTypeName,
     od.OrderItemDestinationID,
-    od.Count,
-    od.LocationID,
-    
-    -- Order fields
+    od.Count AS DestinationCount,
+    od.UnitID AS DestinationUnitID,
+    du.UnitType AS DestinationUnitType,
+    du.UnitSize AS DestinationUnitSize,
+    loc.LocationID,
+    loc.Location AS LocationName,
     o.OrderID,
     o.DatePlaced,
     o.DateReceived,
+    o.DateDue,
     o.OrderNumber,
     o.TrackingNumber,
-    o.OrderComments AS OrderComments,
+    o.OrderComments,
+    o.TotalCost,
     o.GrowingSeason,
     o.GrowingSeasonID,
-    o.DateDue,
-    o.TotalCost,
-    
-    -- OrderItemType fields
+    gs.StartDate AS SeasonStartDate,
+    gs.EndDate AS SeasonEndDate,
     oit.OrderItemType,
     oit.OrderItemTypeID,
-    
-    -- OrderNote fields
     onote.OrderNoteID,
     onote.OrderNote AS OrderNoteDecode,
-    
-    -- Broker fields
     b.BrokerID,
     b.Broker,
     b.BrokerComments,
-    
-    -- Shipper fields
     s.ShipperID,
     s.Shipper,
     s.AccountNumber AS ShipperAccountNumber,
@@ -166,8 +132,6 @@ SELECT
     s.Zip AS ShipperZip,
     s.Phone AS ShipperPhone,
     s.ShipperComments,
-    
-    -- Supplier fields
     sup.SupplierID,
     sup.Supplier,
     sup.AccountNumber AS SupplierAccountNumber,
@@ -182,19 +146,83 @@ SELECT
     sup.State AS SupplierState,
     sup.Zip AS SupplierZip,
     sup.SupplierComments,
-    sup.SupplierType,
-    
-    -- Item reference
-    oi.ItemID
-    
+    sup.SupplierType
 FROM T_OrderItems oi
+LEFT JOIN T_Items i ON oi.ItemID = i.ItemID
+LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
 LEFT JOIN T_Orders o ON oi.OrderID = o.OrderID
+LEFT JOIN T_GrowingSeason gs ON o.GrowingSeasonID = gs.GrowingSeasonID
 LEFT JOIN T_OrderItemTypes oit ON oi.OrderItemTypeID = oit.OrderItemTypeID
 LEFT JOIN T_OrderNotes onote ON oi.OrderNote = onote.OrderNoteID
 LEFT JOIN T_Brokers b ON o.BrokerID = b.BrokerID
 LEFT JOIN T_Shippers s ON o.ShipperID = s.ShipperID
 LEFT JOIN T_Suppliers sup ON o.SupplierID = sup.SupplierID
-LEFT JOIN T_OrderItemDestination od ON oi.OrderItemID = od.OrderItemID; 
--- Display created views
-SELECT 'SQL Views Created Successfully!' as Status;
+LEFT JOIN T_OrderItemDestination od ON oi.OrderItemID = od.OrderItemID
+LEFT JOIN T_Locations loc ON od.LocationID = loc.LocationID
+LEFT JOIN T_Units du ON od.UnitID = du.UnitID;
+
+SELECT 'v_orders_full created' AS Status;
+
+-- ==================== VIEW 4: LABELS ====================
+DROP VIEW IF EXISTS `v_label_data_full`;
+CREATE VIEW `v_label_data_full` AS
+SELECT 
+    i.ItemID,
+    i.Item,
+    i.Variety,
+    i.Color,
+    i.SunConditions,
+    i.LabelDescription,
+    i.Definition,
+    i.PictureLink,
+    i.PictureLayout,
+    i.Inactive,
+    i.ShouldStock,
+    i.TypeID,
+    it.Type,
+    pr.PriceID,
+    pr.UnitID,
+    pr.UnitPrice,
+    pr.Year,
+    u.UnitType,
+    u.UnitSize,
+    u.UnitCategoryID,
+    uc.UnitCategory
+FROM T_Items i
+LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
+LEFT JOIN T_Prices pr ON i.ItemID = pr.ItemID
+LEFT JOIN T_Units u ON pr.UnitID = u.UnitID
+LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID;
+
+SELECT 'v_label_data_full created' AS Status;
+
+-- ==================== VIEW 5: PITCH ====================
+DROP VIEW IF EXISTS `v_pitch_full`;
+CREATE VIEW `v_pitch_full` AS
+SELECT 
+    pt.PitchID,
+    pt.DatePitched,
+    pt.NumberOfUnits,
+    pt.PitchComments,
+    pt.PitchReason,
+    i.ItemID,
+    i.Item,
+    i.Variety,
+    i.Color,
+    it.Type AS ItemTypeName,
+    i.ShouldStock,
+    u.UnitID,
+    u.UnitType,
+    u.UnitSize,
+    uc.UnitCategory
+FROM T_Pitch pt
+LEFT JOIN T_Items i ON pt.ItemID = i.ItemID
+LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
+LEFT JOIN T_Units u ON pt.UnitID = u.UnitID
+LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID;
+
+SELECT 'v_pitch_full created' AS Status;
+
+-- ==================== FINAL CHECK ====================
+SELECT 'All views created successfully!' AS Status;
 SHOW FULL TABLES WHERE Table_type = 'VIEW';

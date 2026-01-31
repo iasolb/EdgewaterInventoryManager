@@ -15,6 +15,7 @@ from database import get_db_session
 from models import Item
 from rest.api import EdgewaterAPI
 from rest.authenticate import Authenticate
+
 api = EdgewaterAPI()
 auth = Authenticate()
 st.set_page_config(
@@ -47,8 +48,9 @@ with col2:
     except:
         st.caption("(Logo image not found - add your logo to image_assets/)")
 
-btn_col1, btn_col2, btn_col3, btn_col4, btn_col5, btn_col6 = st.columns(
+btn_col1, btn_col2, btn_col3, btn_col4, btn_col5, btn_col6, btn_col7 = st.columns(
     [
+        2,
         2,
         2,
         2,
@@ -61,18 +63,20 @@ with btn_col1:
     if st.button("Inventory Manager", disabled=False):
         st.switch_page("pages/inventory_manager.py")
 with btn_col2:
-    if st.button("Plantings", disabled=False):
+    if st.button("Planting Tracker", disabled=False):
         st.switch_page("pages/plantings.py")
 with btn_col3:
     if st.button("Label Generator", disabled=False):
         st.switch_page("pages/label_generator.py")
 with btn_col4:
-    if st.button("Order Tracking", disabled=False):
+    if st.button("Order Tracker", disabled=False):
         st.switch_page("pages/order_tracking.py")
 with btn_col5:
     if st.button("Admin View (All Tables)", disabled=False):
         st.switch_page("pages/admin_landing.py")
-
+with btn_col6:
+    if st.button("Employee Pitch Page", disabled=False):
+        st.switch_page("pages/employee_pitch.py")
 st.markdown("---")
 st.markdown(
     """

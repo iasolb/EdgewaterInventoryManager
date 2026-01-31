@@ -16,7 +16,7 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-api.reset_cache("order_view_cache", api._get_orders_view_full)
+api.reset_cache("order_view_cache", api.get_orders_view_full)
 st.set_page_config(
     page_title="Order Tracking",
     page_icon="📊",

@@ -1,7 +1,7 @@
 """
-Label Generator - Edgewater Inventory Management System
+Employee Page - Edgewater Inventory Management System
 Author: Ian Solberg
-Date: 10-16-2025
+Date: 1-31-2026
 """
 
 import streamlit as st
@@ -16,10 +16,10 @@ from models import Item
 from rest.api import EdgewaterAPI
 
 api = EdgewaterAPI()
-
+api.reset_cache("planting_view_cache", api.get_pitch_view)
 st.set_page_config(
-    page_title="Label Generator",
-    page_icon="🏷️",
+    page_title="Plantings",
+    page_icon="🌱",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -27,8 +27,8 @@ st.set_page_config(
 api.set_background(
     api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
 )
-api.reset_cache("label_view_cache", api.get_label_view_full)
-st.title("Label Generator")
+
+st.title("Employee Pitch Page")
 st.write("This feature is coming soon!")
 btn_col1 = st.columns(1)[0]
 with btn_col1:
@@ -37,8 +37,3 @@ with btn_col1:
 
 
 content_layout = st.columns([0.1, 30, 0.1])
-
-with content_layout[1]:  # middle column with the dataframe
-    label_data = api.get_label_display()
-    st.data_editor(label_data, use_container_width=True)
-    st.data_editor(label_data["SunConditions"], use_container_width=True)

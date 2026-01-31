@@ -44,7 +44,7 @@ st.markdown(
 api.set_background(
     api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
 )
-api.reset_cache("inventory_view_cache", api._get_inventory_view_full)
+api.reset_cache("inventory_view_cache", api.get_inventory_view_full)
 # ==== Sidebar ==============
 st.sidebar.header("Edgewater Inventory Manager")
 options = st.container()
