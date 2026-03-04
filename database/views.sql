@@ -29,12 +29,15 @@ SELECT
     u.UnitType,
     u.UnitSize,
     u.UnitCategoryID,
-    uc.UnitCategory
+    uc.UnitCategory,
+    inv.LocationID,
+    loc.Location
 FROM T_Inventory inv
 LEFT JOIN T_Items i ON inv.ItemID = i.ItemID
 LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
 LEFT JOIN T_Units u ON inv.UnitID = u.UnitID
-LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID;
+LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID
+LEFT JOIN T_Locations loc ON inv.LocationID = loc.LocationID;
 
 SELECT 'v_inventory_full created' AS Status;
 

@@ -27,6 +27,7 @@ class InventoryPayload(TypedDict, total=False):
     UnitID: int
     NumberOfUnits: str
     InventoryComments: str
+    LocationID: int
 
 
 class ItemPayload(TypedDict, total=False):
@@ -108,6 +109,7 @@ class PlantingPayload(TypedDict, total=False):
     UnitID: int
     NumberOfUnits: str
     PlantingComments: str
+    LocationID: int
 
 
 class PricePayload(TypedDict, total=False):
@@ -234,6 +236,9 @@ class InventoryFullViewPayload(TypedDict, total=False):
     UnitCategoryID: int
     # UnitCategory fields
     UnitCategory: str
+    # Location fields
+    LocationID: int
+    Location: str
 
 
 class PlantingsFullViewPayload(TypedDict, total=False):

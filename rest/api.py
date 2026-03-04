@@ -401,7 +401,7 @@ class EdgewaterAPI:
     """
 
     # ========= GET =========
-    def df_get_by_id(cache_data:pd.DataFrame, id_column:str, id: int) -> pd.DataFrame:
+    def df_get_by_id(cache_data: pd.DataFrame, id_column: str, id: int) -> pd.DataFrame:
         return cache_data[cache_data[id_column] == id].copy()
 
     def get_inventory_full(self) -> pd.DataFrame:
@@ -980,7 +980,8 @@ class EdgewaterAPI:
         NumberOfUnits: float,
         DateCounted: Optional[datetime] = None,
         InventoryComments: Optional[str] = None,
-    ) -> None:
+        LocationID: Optional[int] = None,
+    ) -> Dict[str, Any]:
         """Add new inventory record"""
         try:
             p: InventoryPayload = {
@@ -990,9 +991,11 @@ class EdgewaterAPI:
                 "NumberOfUnits": str(NumberOfUnits),
                 "DateCounted": DateCounted or datetime.now(),
                 "InventoryComments": InventoryComments,
+                "LocationID": LocationID,
             }
             result = self._create(model_class=Inventory, data=p)
             logger.info(f"Added inventory record {result['InventoryID']}")
+            return result
         except Exception as e:
             logger.error(f"Error adding inventory: {e}")
             raise
@@ -1172,28 +1175,32 @@ class EdgewaterAPI:
             logger.error(f"Error adding order item: {e}")
             raise
 
-    def table_add_order_item_type(self, OrderItemType: str) -> Dict[str, Any]:
+    def table_add_order_item_type(self, OrderItemTypeName: str) -> Dict[str, Any]:
         """Add new order item type record"""
         try:
+            from models import OrderItemType as OIT
+
             p: OrderItemTypePayload = {
-                "OrderItemTypeID": self._get_next_id(OrderItemType, "OrderItemTypeID"),
-                "OrderItemType": OrderItemType,
+                "OrderItemTypeID": self._get_next_id(OIT, "OrderItemTypeID"),
+                "OrderItemType": OrderItemTypeName,
             }
-            result = self._create(model_class=OrderItemType, data=p)
+            result = self._create(model_class=OIT, data=p)
             logger.info(f"Added order item type record {result['OrderItemTypeID']}")
             return result
         except Exception as e:
             logger.error(f"Error adding order item type: {e}")
             raise
 
-    def table_add_order_note(self, OrderNote: str) -> Dict[str, Any]:
+    def table_add_order_note(self, OrderNoteText: str) -> Dict[str, Any]:
         """Add new order note record"""
         try:
+            from models import OrderNote as ON
+
             p: OrderNotePayload = {
-                "OrderNoteID": self._get_next_id(OrderNote, "OrderNoteID"),
-                "OrderNote": OrderNote,
+                "OrderNoteID": self._get_next_id(ON, "OrderNoteID"),
+                "OrderNote": OrderNoteText,
             }
-            result = self._create(model_class=OrderNote, data=p)
+            result = self._create(model_class=ON, data=p)
             logger.info(f"Added order note record {result['OrderNoteID']}")
             return result
         except Exception as e:
@@ -1234,6 +1241,7 @@ class EdgewaterAPI:
         NumberOfUnits: str,
         DatePlanted: Optional[datetime] = None,
         PlantingComments: Optional[str] = None,
+        LocationID: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Add new planting record"""
         try:
@@ -1244,6 +1252,7 @@ class EdgewaterAPI:
                 "UnitID": UnitID,
                 "NumberOfUnits": NumberOfUnits,
                 "PlantingComments": PlantingComments,
+                "LocationID": LocationID,
             }
             result = self._create(model_class=Planting, data=p)
             logger.info(f"Added planting record {result['PlantingID']}")
@@ -1277,7 +1286,7 @@ class EdgewaterAPI:
 
     def table_add_shipper(
         self,
-        Shipper: str,
+        ShipperName: str,
         AccountNumber: Optional[str] = None,
         Phone: Optional[str] = None,
         ContactPerson: Optional[str] = None,
@@ -1290,9 +1299,11 @@ class EdgewaterAPI:
     ) -> Dict[str, Any]:
         """Add new shipper record"""
         try:
+            from models import Shipper as SHP
+
             p: ShipperPayload = {
-                "ShipperID": self._get_next_id(Shipper, "ShipperID"),
-                "Shipper": Shipper,
+                "ShipperID": self._get_next_id(SHP, "ShipperID"),
+                "Shipper": ShipperName,
                 "AccountNumber": AccountNumber,
                 "Phone": Phone,
                 "ContactPerson": ContactPerson,
@@ -1303,7 +1314,7 @@ class EdgewaterAPI:
                 "Zip": Zip,
                 "ShipperComments": ShipperComments,
             }
-            result = self._create(model_class=Shipper, data=p)
+            result = self._create(model_class=SHP, data=p)
             logger.info(f"Added shipper record {result['ShipperID']}")
             return result
         except Exception as e:
@@ -1312,7 +1323,7 @@ class EdgewaterAPI:
 
     def table_add_supplier(
         self,
-        Supplier: str,
+        SupplierName: str,
         AccountNumber: Optional[str] = None,
         Phone: Optional[str] = None,
         Fax: Optional[str] = None,
@@ -1329,9 +1340,11 @@ class EdgewaterAPI:
     ) -> Dict[str, Any]:
         """Add new supplier record"""
         try:
+            from models import Supplier as SUP
+
             p: SupplierPayload = {
-                "SupplierID": self._get_next_id(Supplier, "SupplierID"),
-                "Supplier": Supplier,
+                "SupplierID": self._get_next_id(SUP, "SupplierID"),
+                "Supplier": SupplierName,
                 "AccountNumber": AccountNumber,
                 "Phone": Phone,
                 "Fax": Fax,
@@ -1346,21 +1359,23 @@ class EdgewaterAPI:
                 "SupplierComments": SupplierComments,
                 "SupplierType": SupplierType,
             }
-            result = self._create(model_class=Supplier, data=p)
+            result = self._create(model_class=SUP, data=p)
             logger.info(f"Added supplier record {result['SupplierID']}")
             return result
         except Exception as e:
             logger.error(f"Error adding supplier: {e}")
             raise
 
-    def table_add_unit_category(self, UnitCategory: str) -> Dict[str, Any]:
+    def table_add_unit_category(self, UnitCategoryName: str) -> Dict[str, Any]:
         """Add new unit category record"""
         try:
+            from models import UnitCategory as UC
+
             p: UnitCategoryPayload = {
-                "UnitCategoryID": self._get_next_id(UnitCategory, "UnitCategoryID"),
-                "UnitCategory": UnitCategory,
+                "UnitCategoryID": self._get_next_id(UC, "UnitCategoryID"),
+                "UnitCategory": UnitCategoryName,
             }
-            result = self._create(model_class=UnitCategory, data=p)
+            result = self._create(model_class=UC, data=p)
             logger.info(f"Added unit category record {result['UnitCategoryID']}")
             return result
         except Exception as e:

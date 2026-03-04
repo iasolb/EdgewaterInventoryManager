@@ -63,6 +63,12 @@ ADD CONSTRAINT `fk_Inventory_UnitID`
 FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
 ON DELETE RESTRICT;
 
+-- T_Inventory: can't delete a Location that has inventory history
+ALTER TABLE `T_Inventory`
+ADD CONSTRAINT `fk_Inventory_LocationID`
+FOREIGN KEY (`LocationID`) REFERENCES `T_Locations`(`LocationID`)
+ON DELETE RESTRICT;
+
 -- T_Pitch: can't delete an Item or Unit that has pitch history
 ALTER TABLE `T_Pitch`
 ADD CONSTRAINT `fk_Pitch_ItemID`
@@ -176,6 +182,7 @@ CREATE INDEX `ix_PlantingDestinations_PlantingID` ON `T_PlantingDestinations`(`P
 CREATE INDEX `ix_PlantingDestinations_LocationID` ON `T_PlantingDestinations`(`LocationID`);
 CREATE INDEX `ix_Inventory_ItemID` ON `T_Inventory`(`ItemID`);
 CREATE INDEX `ix_Inventory_UnitID` ON `T_Inventory`(`UnitID`);
+CREATE INDEX `ix_Inventory_LocationID` ON `T_Inventory`(`LocationID`);
 CREATE INDEX `ix_Pitch_ItemID` ON `T_Pitch`(`ItemID`);
 CREATE INDEX `ix_Pitch_UnitID` ON `T_Pitch`(`UnitID`);
 CREATE INDEX `ix_Orders_GrowingSeasonID` ON `T_Orders`(`GrowingSeasonID`);

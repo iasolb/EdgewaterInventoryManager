@@ -133,7 +133,8 @@ CREATE TABLE `T_Inventory` (
     `ItemID` INTEGER,
     `UnitID` INTEGER,
     `NumberOfUnits` TEXT,
-    `InventoryComments` LONGTEXT
+    `InventoryComments` LONGTEXT,
+    `LocationID` INTEGER
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
 DROP TABLE IF EXISTS `T_Pitch`;

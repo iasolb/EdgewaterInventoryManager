@@ -229,10 +229,12 @@ class Inventory(Base):
     UnitID = Column(Integer, ForeignKey("T_Units.UnitID"))
     NumberOfUnits = Column(Text)
     InventoryComments = Column(Text)
+    LocationID = Column(Integer, ForeignKey("T_Locations.LocationID"))
 
     # Relationships
     item = relationship("Item", back_populates="inventory")
     unit = relationship("Unit", back_populates="inventory")
+    location = relationship("Location", back_populates="inventory")
 
 
 class Pitch(Base):
@@ -362,6 +364,9 @@ class Location(Base):
     LocationID = Column(Integer, primary_key=True)
     Location = Column(Text)
 
+    # Relationships
+    inventory = relationship("Inventory", back_populates="location")
+
 
 """
  Views!
@@ -406,6 +411,10 @@ class InventoryFullView(Base):
 
     # UnitCategory fields
     UnitCategory = Column(Text)
+
+    # Location fields
+    LocationID = Column(Integer)
+    Location = Column(Text)
 
 
 class PlantingsFullView(Base):

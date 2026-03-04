@@ -57,6 +57,12 @@ FROM T_Inventory
 WHERE UnitID IS NOT NULL 
     AND UnitID NOT IN (SELECT UnitID FROM T_Units WHERE UnitID IS NOT NULL)
 UNION ALL
+SELECT 'T_Inventory LocationID orphans', 
+    COUNT(*)
+FROM T_Inventory 
+WHERE LocationID IS NOT NULL 
+    AND LocationID NOT IN (SELECT LocationID FROM T_Locations WHERE LocationID IS NOT NULL)
+UNION ALL
 SELECT 'T_Pitch ItemID orphans', 
     COUNT(*)
 FROM T_Pitch 
@@ -213,6 +219,12 @@ SET UnitID = 0
 WHERE UnitID IS NOT NULL 
     AND UnitID NOT IN (SELECT UnitID FROM T_Units WHERE UnitID IS NOT NULL);
 
+-- T_Inventory.LocationID -> T_Locations (SET to 0 - "Unknown Location")
+UPDATE T_Inventory 
+SET LocationID = 0
+WHERE LocationID IS NOT NULL 
+    AND LocationID NOT IN (SELECT LocationID FROM T_Locations WHERE LocationID IS NOT NULL);
+
 -- ==================== T_Pitch ====================
 -- T_Pitch.ItemID -> T_Items (SET to 0 - "Unknown Item" - preserve pitch history)
 UPDATE T_Pitch 
@@ -367,6 +379,12 @@ SELECT 'T_Inventory UnitID orphans',
 FROM T_Inventory 
 WHERE UnitID IS NOT NULL 
     AND UnitID NOT IN (SELECT UnitID FROM T_Units WHERE UnitID IS NOT NULL)
+UNION ALL
+SELECT 'T_Inventory LocationID orphans', 
+    COUNT(*)
+FROM T_Inventory 
+WHERE LocationID IS NOT NULL 
+    AND LocationID NOT IN (SELECT LocationID FROM T_Locations WHERE LocationID IS NOT NULL)
 UNION ALL
 SELECT 'T_Pitch ItemID orphans', 
     COUNT(*)

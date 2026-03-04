@@ -162,7 +162,7 @@ SET
 LOAD DATA INFILE '/var/lib/mysql-files/Inventory.csv'
 INTO TABLE `T_Inventory`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-(InventoryID, @DateCounted, @ItemID, @UnitID, @NumberOfUnits, @InventoryComments)
+(InventoryID, @DateCounted, @ItemID, @UnitID, @NumberOfUnits, @InventoryComments, @LocationID)
 SET 
     DateCounted = CASE
         WHEN @DateCounted LIKE '%/%' THEN STR_TO_DATE(@DateCounted, '%m/%d/%y %H:%i')
@@ -171,7 +171,8 @@ SET
     ItemID = NULLIF(@ItemID, ''),
     UnitID = NULLIF(@UnitID, ''),
     NumberOfUnits = NULLIF(@NumberOfUnits, ''),
-    InventoryComments = NULLIF(@InventoryComments, '');
+    InventoryComments = NULLIF(@InventoryComments, ''),
+    LocationID = NULLIF(@LocationID, '');
 
 -- Pitch: DatePitched may be M/D/YY or ISO
 LOAD DATA INFILE '/var/lib/mysql-files/Pitch.csv'
