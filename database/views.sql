@@ -46,6 +46,13 @@ SELECT
     p.DatePlanted,
     p.NumberOfUnits,
     p.PlantingComments,
+    p.LocationID AS PlantingLocationID,
+    ploc.Location AS PlantingLocation,
+    pd.PlantingDestinationID,
+    pd.LocationID AS DestinationLocationID,
+    dloc.Location AS DestinationLocation,
+    pd.UnitsDestined,
+    pd.PurposeComments,
     i.ItemID,
     i.Item,
     i.Variety,
@@ -72,7 +79,10 @@ LEFT JOIN T_Items i ON p.ItemID = i.ItemID
 LEFT JOIN T_ItemType it ON i.TypeID = it.TypeID
 LEFT JOIN T_Units u ON p.UnitID = u.UnitID
 LEFT JOIN T_UnitCategory uc ON u.UnitCategoryID = uc.UnitCategoryID
-LEFT JOIN T_SeasonalNotes sn ON p.ItemID = sn.ItemID;
+LEFT JOIN T_SeasonalNotes sn ON p.ItemID = sn.ItemID
+LEFT JOIN T_Locations ploc ON p.LocationID = ploc.LocationID
+LEFT JOIN T_PlantingDestinations pd ON p.PlantingID = pd.PlantingID
+LEFT JOIN T_Locations dloc ON pd.LocationID = dloc.LocationID;
 
 SELECT 'v_plantings_full created' AS Status;
 

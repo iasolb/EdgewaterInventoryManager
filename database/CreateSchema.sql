@@ -122,7 +122,8 @@ CREATE TABLE `T_Plantings` (
     `ItemID` INTEGER,
     `UnitID` INTEGER,
     `NumberOfUnits` TEXT,
-    `PlantingComments` LONGTEXT
+    `PlantingComments` LONGTEXT,
+    `LocationID` INTEGER
 ) ENGINE=InnoDB CHARACTER SET UTF8;
 
 DROP TABLE IF EXISTS `T_Inventory`;
@@ -240,4 +241,13 @@ DROP TABLE IF EXISTS `T_Locations`;
 CREATE TABLE `T_Locations` (
     `LocationID` INTEGER PRIMARY KEY AUTO_INCREMENT,
     `Location` TEXT
+) ENGINE=InnoDB CHARACTER SET UTF8;
+
+DROP TABLE IF EXISTS `T_PlantingDestinations`;
+CREATE TABLE `T_PlantingDestinations` (
+    `PlantingDestinationID` INTEGER PRIMARY KEY AUTO_INCREMENT,
+    `PlantingID` INTEGER,
+    `LocationID` INTEGER,
+    `UnitsDestined` TEXT,
+    `PurposeComments` LONGTEXT
 ) ENGINE=InnoDB CHARACTER SET UTF8;

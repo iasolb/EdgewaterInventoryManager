@@ -401,6 +401,8 @@ class EdgewaterAPI:
     """
 
     # ========= GET =========
+    def df_get_by_id(cache_data:pd.DataFrame, id_column:str, id: int) -> pd.DataFrame:
+        return cache_data[cache_data[id_column] == id].copy()
 
     def get_inventory_full(self) -> pd.DataFrame:
         """

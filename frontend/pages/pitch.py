@@ -120,10 +120,17 @@ with st.expander("➕ Add New Pitch Record", expanded=st.session_state.show_add_
     st.write("### Create New Pitch Record")
 
     # Prepare lookup dictionaries
-    items_dict = api.item_cache.set_index("ItemID")["Item"].to_dict()
-    units_dict = api.unit_cache.apply(
-        lambda x: f"{x['UnitSize']} {x['UnitType']}", axis=1
-    ).to_dict()
+    items_dict = {
+        int(k): str(v)
+        for k, v in api.item_cache.set_index("ItemID")["Item"].to_dict().items()
+    }
+    units_dict = {
+        int(k): str(v)
+        for k, v in api.unit_cache.set_index("UnitID")
+        .apply(lambda x: f"{x['UnitSize']} {x['UnitType']}", axis=1)
+        .to_dict()
+        .items()
+    }
 
     with st.form("add_pitch_form", clear_on_submit=True):
         col1, col2 = st.columns(2)

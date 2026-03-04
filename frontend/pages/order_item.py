@@ -137,16 +137,29 @@ with st.expander("➕ Add New Order Item", expanded=st.session_state.show_add_fo
 
     # Prepare lookup dictionaries
     orders_dict = {
-        row["OrderID"]: f"Order #{row['OrderID']} - {row.get('OrderNumber', 'N/A')}"
+        int(
+            row["OrderID"]
+        ): f"Order #{int(row['OrderID'])} - {row.get('OrderNumber', 'N/A')}"
         for _, row in api.order_cache.iterrows()
     }
-    items_dict = api.item_cache.set_index("ItemID")["Item"].to_dict()
-    order_item_types_dict = api.order_item_type_cache.set_index("OrderItemTypeID")[
-        "OrderItemType"
-    ].to_dict()
-    order_notes_dict = api.order_note_cache.set_index("OrderNoteID")[
-        "OrderNote"
-    ].to_dict()
+    items_dict = {
+        int(k): str(v)
+        for k, v in api.item_cache.set_index("ItemID")["Item"].to_dict().items()
+    }
+    order_item_types_dict = {
+        int(k): str(v)
+        for k, v in api.order_item_type_cache.set_index("OrderItemTypeID")[
+            "OrderItemType"
+        ]
+        .to_dict()
+        .items()
+    }
+    order_notes_dict = {
+        int(k): str(v)
+        for k, v in api.order_note_cache.set_index("OrderNoteID")["OrderNote"]
+        .to_dict()
+        .items()
+    }
 
     with st.form("add_order_item_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)

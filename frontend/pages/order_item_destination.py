@@ -115,10 +115,19 @@ with st.expander(
     st.write("### Create New Order Item Destination")
 
     # Prepare lookup dictionaries
-    units_dict = api.unit_cache.apply(
-        lambda x: f"{x['UnitSize']} {x['UnitType']}", axis=1
-    ).to_dict()
-    locations_dict = api.location_cache.set_index("LocationID")["Location"].to_dict()
+    units_dict = {
+        int(k): str(v)
+        for k, v in api.unit_cache.set_index("UnitID")
+        .apply(lambda x: f"{x['UnitSize']} {x['UnitType']}", axis=1)
+        .to_dict()
+        .items()
+    }
+    locations_dict = {
+        int(k): str(v)
+        for k, v in api.location_cache.set_index("LocationID")["Location"]
+        .to_dict()
+        .items()
+    }
 
     with st.form("add_order_item_destination_form", clear_on_submit=True):
         col1, col2 = st.columns(2)

@@ -1,142 +1,169 @@
--- Foreign Key Relationships for EdgewaterMaster
--- Clean version - all orphans already fixed in LoadData.sql
+-- Relationships.sql - Foreign Key Constraints and Indexes for EdgewaterMaster
+-- Run AFTER LoadData.sql and CleanupOrphans.sql
+--
+-- ON DELETE strategy:
+--   RESTRICT  = "preserve history" - blocks deleting a parent that has children
+--               (admin must reassign children first; keeps 0=Unknown convention consistent)
+--   CASCADE   = "ownership" - deleting parent removes its children
+--               (OrderItems die with their Order, Passwords die with their User, etc.)
 
+USE `EdgewaterMaster`;
 SET FOREIGN_KEY_CHECKS = 0;
+SET SESSION sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
 
--- ==================== CREATE ALL FOREIGN KEYS ====================
+-- ==================== FOREIGN KEY CONSTRAINTS ====================
 
--- T_Items relationships
-ALTER TABLE `T_Items` 
-ADD CONSTRAINT `fk_Items_TypeID` 
+-- T_Items: can't delete an ItemType that has Items using it
+ALTER TABLE `T_Items`
+ADD CONSTRAINT `fk_Items_TypeID`
 FOREIGN KEY (`TypeID`) REFERENCES `T_ItemType`(`TypeID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Units relationships
-ALTER TABLE `T_Units` 
-ADD CONSTRAINT `fk_Units_UnitCategoryID` 
+-- T_Units: can't delete a UnitCategory that has Units using it
+ALTER TABLE `T_Units`
+ADD CONSTRAINT `fk_Units_UnitCategoryID`
 FOREIGN KEY (`UnitCategoryID`) REFERENCES `T_UnitCategory`(`UnitCategoryID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Prices relationships
-ALTER TABLE `T_Prices` 
-ADD CONSTRAINT `fk_Prices_ItemID` 
+-- T_Prices: can't delete an Item or Unit that has price history
+ALTER TABLE `T_Prices`
+ADD CONSTRAINT `fk_Prices_ItemID`
 FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
-ON DELETE CASCADE;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Prices` 
-ADD CONSTRAINT `fk_Prices_UnitID` 
+ALTER TABLE `T_Prices`
+ADD CONSTRAINT `fk_Prices_UnitID`
 FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Plantings relationships
-ALTER TABLE `T_Plantings` 
-ADD CONSTRAINT `fk_Plantings_ItemID` 
+-- T_Plantings: can't delete an Item/Unit/Location that has planting history
+ALTER TABLE `T_Plantings`
+ADD CONSTRAINT `fk_Plantings_ItemID`
 FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
-ON DELETE CASCADE;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Plantings` 
-ADD CONSTRAINT `fk_Plantings_UnitID` 
+ALTER TABLE `T_Plantings`
+ADD CONSTRAINT `fk_Plantings_UnitID`
 FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Inventory relationships
-ALTER TABLE `T_Inventory` 
-ADD CONSTRAINT `fk_Inventory_ItemID` 
+ALTER TABLE `T_Plantings`
+ADD CONSTRAINT `fk_Plantings_LocationID`
+FOREIGN KEY (`LocationID`) REFERENCES `T_Locations`(`LocationID`)
+ON DELETE RESTRICT;
+
+-- T_Inventory: can't delete an Item or Unit that has inventory history
+ALTER TABLE `T_Inventory`
+ADD CONSTRAINT `fk_Inventory_ItemID`
 FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
-ON DELETE CASCADE;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Inventory` 
-ADD CONSTRAINT `fk_Inventory_UnitID` 
+ALTER TABLE `T_Inventory`
+ADD CONSTRAINT `fk_Inventory_UnitID`
 FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Pitch relationships
-ALTER TABLE `T_Pitch` 
-ADD CONSTRAINT `fk_Pitch_ItemID` 
+-- T_Pitch: can't delete an Item or Unit that has pitch history
+ALTER TABLE `T_Pitch`
+ADD CONSTRAINT `fk_Pitch_ItemID`
 FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
-ON DELETE CASCADE;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Pitch` 
-ADD CONSTRAINT `fk_Pitch_UnitID` 
+ALTER TABLE `T_Pitch`
+ADD CONSTRAINT `fk_Pitch_UnitID`
 FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Orders relationships
-ALTER TABLE `T_Orders` 
-ADD CONSTRAINT `fk_Orders_GrowingSeasonID` 
+-- T_Orders: can't delete a Season/Supplier/Shipper/Broker that has orders
+ALTER TABLE `T_Orders`
+ADD CONSTRAINT `fk_Orders_GrowingSeasonID`
 FOREIGN KEY (`GrowingSeasonID`) REFERENCES `T_GrowingSeason`(`GrowingSeasonID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Orders` 
-ADD CONSTRAINT `fk_Orders_SupplierID` 
+ALTER TABLE `T_Orders`
+ADD CONSTRAINT `fk_Orders_SupplierID`
 FOREIGN KEY (`SupplierID`) REFERENCES `T_Suppliers`(`SupplierID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Orders` 
-ADD CONSTRAINT `fk_Orders_ShipperID` 
+ALTER TABLE `T_Orders`
+ADD CONSTRAINT `fk_Orders_ShipperID`
 FOREIGN KEY (`ShipperID`) REFERENCES `T_Shippers`(`ShipperID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_Orders` 
-ADD CONSTRAINT `fk_Orders_BrokerID` 
+ALTER TABLE `T_Orders`
+ADD CONSTRAINT `fk_Orders_BrokerID`
 FOREIGN KEY (`BrokerID`) REFERENCES `T_Brokers`(`BrokerID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_OrderItems relationships
-ALTER TABLE `T_OrderItems` 
-ADD CONSTRAINT `fk_OrderItems_OrderID` 
+-- T_OrderItems: line items are owned by their Order (CASCADE)
+-- but can't delete an Item/Type/Note that has order history (RESTRICT)
+ALTER TABLE `T_OrderItems`
+ADD CONSTRAINT `fk_OrderItems_OrderID`
 FOREIGN KEY (`OrderID`) REFERENCES `T_Orders`(`OrderID`)
 ON DELETE CASCADE;
 
-ALTER TABLE `T_OrderItems` 
-ADD CONSTRAINT `fk_OrderItems_ItemID` 
+ALTER TABLE `T_OrderItems`
+ADD CONSTRAINT `fk_OrderItems_ItemID`
 FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_OrderItems` 
-ADD CONSTRAINT `fk_OrderItems_OrderItemTypeID` 
+ALTER TABLE `T_OrderItems`
+ADD CONSTRAINT `fk_OrderItems_OrderItemTypeID`
 FOREIGN KEY (`OrderItemTypeID`) REFERENCES `T_OrderItemTypes`(`OrderItemTypeID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_OrderItems` 
-ADD CONSTRAINT `fk_OrderItems_OrderNote` 
+ALTER TABLE `T_OrderItems`
+ADD CONSTRAINT `fk_OrderItems_OrderNote`
 FOREIGN KEY (`OrderNote`) REFERENCES `T_OrderNotes`(`OrderNoteID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_SeasonalNotes relationships
-ALTER TABLE `T_SeasonalNotes` 
-ADD CONSTRAINT `fk_SeasonalNotes_ItemID` 
+-- T_SeasonalNotes: owned by their Item and Season (CASCADE)
+ALTER TABLE `T_SeasonalNotes`
+ADD CONSTRAINT `fk_SeasonalNotes_ItemID`
 FOREIGN KEY (`ItemID`) REFERENCES `T_Items`(`ItemID`)
 ON DELETE CASCADE;
 
-ALTER TABLE `T_SeasonalNotes` 
-ADD CONSTRAINT `fk_SeasonalNotes_GrowingSeasonID` 
+ALTER TABLE `T_SeasonalNotes`
+ADD CONSTRAINT `fk_SeasonalNotes_GrowingSeasonID`
 FOREIGN KEY (`GrowingSeasonID`) REFERENCES `T_GrowingSeason`(`GrowingSeasonID`)
 ON DELETE CASCADE;
 
--- T_OrderItemDestination relationships
-ALTER TABLE `T_OrderItemDestination` 
-ADD CONSTRAINT `fk_OrderItemDest_OrderItemID` 
+-- T_PlantingDestinations: owned by their Planting (CASCADE)
+-- can't delete a Location that has destinations (RESTRICT)
+ALTER TABLE `T_PlantingDestinations`
+ADD CONSTRAINT `fk_PlantingDestinations_PlantingID`
+FOREIGN KEY (`PlantingID`) REFERENCES `T_Plantings`(`PlantingID`)
+ON DELETE CASCADE;
+
+ALTER TABLE `T_PlantingDestinations`
+ADD CONSTRAINT `fk_PlantingDestinations_LocationID`
+FOREIGN KEY (`LocationID`) REFERENCES `T_Locations`(`LocationID`)
+ON DELETE RESTRICT;
+
+-- T_OrderItemDestination: owned by their OrderItem (CASCADE)
+-- can't delete a Unit/Location that has destinations (RESTRICT)
+ALTER TABLE `T_OrderItemDestination`
+ADD CONSTRAINT `fk_OrderItemDest_OrderItemID`
 FOREIGN KEY (`OrderItemID`) REFERENCES `T_OrderItems`(`OrderItemID`)
 ON DELETE CASCADE;
 
-ALTER TABLE `T_OrderItemDestination` 
-ADD CONSTRAINT `fk_OrderItemDest_UnitID` 
+ALTER TABLE `T_OrderItemDestination`
+ADD CONSTRAINT `fk_OrderItemDest_UnitID`
 FOREIGN KEY (`UnitID`) REFERENCES `T_Units`(`UnitID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
-ALTER TABLE `T_OrderItemDestination` 
-ADD CONSTRAINT `fk_OrderItemDest_LocationID` 
+ALTER TABLE `T_OrderItemDestination`
+ADD CONSTRAINT `fk_OrderItemDest_LocationID`
 FOREIGN KEY (`LocationID`) REFERENCES `T_Locations`(`LocationID`)
-ON DELETE SET NULL;
+ON DELETE RESTRICT;
 
--- T_Passwords relationships
-ALTER TABLE `T_Passwords` 
-ADD CONSTRAINT `fk_Passwords_UserID` 
-FOREIGN KEY (`UserID`) REFERENCES `T_Users`(`UserID`) 
+-- T_Passwords: owned by their User (CASCADE)
+ALTER TABLE `T_Passwords`
+ADD CONSTRAINT `fk_Passwords_UserID`
+FOREIGN KEY (`UserID`) REFERENCES `T_Users`(`UserID`)
 ON DELETE CASCADE;
 
--- ==================== CREATE INDEXES FOR PERFORMANCE ====================
+-- ==================== INDEXES FOR PERFORMANCE ====================
 
 CREATE INDEX `ix_Items_TypeID` ON `T_Items`(`TypeID`);
 CREATE INDEX `ix_Units_UnitCategoryID` ON `T_Units`(`UnitCategoryID`);
@@ -144,6 +171,9 @@ CREATE INDEX `ix_Prices_ItemID` ON `T_Prices`(`ItemID`);
 CREATE INDEX `ix_Prices_UnitID` ON `T_Prices`(`UnitID`);
 CREATE INDEX `ix_Plantings_ItemID` ON `T_Plantings`(`ItemID`);
 CREATE INDEX `ix_Plantings_UnitID` ON `T_Plantings`(`UnitID`);
+CREATE INDEX `ix_Plantings_LocationID` ON `T_Plantings`(`LocationID`);
+CREATE INDEX `ix_PlantingDestinations_PlantingID` ON `T_PlantingDestinations`(`PlantingID`);
+CREATE INDEX `ix_PlantingDestinations_LocationID` ON `T_PlantingDestinations`(`LocationID`);
 CREATE INDEX `ix_Inventory_ItemID` ON `T_Inventory`(`ItemID`);
 CREATE INDEX `ix_Inventory_UnitID` ON `T_Inventory`(`UnitID`);
 CREATE INDEX `ix_Pitch_ItemID` ON `T_Pitch`(`ItemID`);
@@ -166,10 +196,10 @@ CREATE UNIQUE INDEX `ix_Users_Email` ON `T_Users`(`Email`(255));
 
 SET FOREIGN_KEY_CHECKS = 1;
 
+-- ==================== VERIFICATION ====================
 SELECT 'All Foreign Keys and Indexes Created Successfully!' as Status;
 
--- Verify foreign keys were created
-SELECT 
+SELECT
     TABLE_NAME,
     CONSTRAINT_NAME,
     COLUMN_NAME,

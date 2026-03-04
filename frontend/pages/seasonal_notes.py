@@ -118,7 +118,10 @@ with st.expander("➕ Add New Seasonal Note", expanded=st.session_state.show_add
     st.write("### Create New Seasonal Note")
 
     # Prepare lookup dictionaries
-    items_dict = api.item_cache.set_index("ItemID")["Item"].to_dict()
+    items_dict = {
+        int(k): str(v)
+        for k, v in api.item_cache.set_index("ItemID")["Item"].to_dict().items()
+    }
 
     with st.form("add_seasonal_note_form", clear_on_submit=True):
         col1, col2 = st.columns(2)

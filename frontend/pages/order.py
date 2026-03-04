@@ -136,12 +136,30 @@ with st.expander("➕ Add New Order", expanded=st.session_state.show_add_form):
     st.write("### Create New Order")
 
     # Prepare lookup dictionaries
-    suppliers_dict = api.supplier_cache.set_index("SupplierID")["Supplier"].to_dict()
-    shippers_dict = api.shipper_cache.set_index("ShipperID")["Shipper"].to_dict()
-    brokers_dict = api.broker_cache.set_index("BrokerID")["Broker"].to_dict()
-    seasons_dict = api.growing_season_cache.set_index("GrowingSeasonID")[
-        "GrowingSeason"
-    ].to_dict()
+    suppliers_dict = {
+        int(k): str(v)
+        for k, v in api.supplier_cache.set_index("SupplierID")["Supplier"]
+        .to_dict()
+        .items()
+    }
+    shippers_dict = {
+        int(k): str(v)
+        for k, v in api.shipper_cache.set_index("ShipperID")["Shipper"]
+        .to_dict()
+        .items()
+    }
+    brokers_dict = {
+        int(k): str(v)
+        for k, v in api.broker_cache.set_index("BrokerID")["Broker"].to_dict().items()
+    }
+    seasons_dict = {
+        int(k): str(v)
+        for k, v in api.growing_season_cache.set_index("GrowingSeasonID")[
+            "GrowingSeason"
+        ]
+        .to_dict()
+        .items()
+    }
 
     with st.form("add_order_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)

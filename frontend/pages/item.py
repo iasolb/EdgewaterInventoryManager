@@ -164,7 +164,10 @@ st.divider()
 with st.expander("➕ Add New Item", expanded=st.session_state.show_add_form):
     st.write("### Create New Item")
 
-    item_types = api.item_type_cache.set_index("TypeID")["Type"].to_dict()
+    item_types = {
+        int(k): str(v)
+        for k, v in api.item_type_cache.set_index("TypeID")["Type"].to_dict().items()
+    }
 
     with st.form("add_item_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
@@ -401,7 +404,10 @@ st.divider()
 with st.expander("🔧 Bulk Operations"):
     st.write("### Bulk Actions")
 
-    item_types = api.item_type_cache.set_index("TypeID")["Type"].to_dict()
+    item_types = {
+        int(k): str(v)
+        for k, v in api.item_type_cache.set_index("TypeID")["Type"].to_dict().items()
+    }
 
     bulk_col1, bulk_col2, bulk_col3 = st.columns(3)
 

@@ -1,9 +1,22 @@
 -- LoadData.sql - Loads CSV data into EdgewaterMaster database
+--
+-- KEY FIXES:
+--   1. sql_mode = 'NO_AUTO_VALUE_ON_ZERO': Allows LocationID=0, removes STRICT_TRANS_TABLES
+--   2. STR_TO_DATE with CASE fallback on ALL DATETIME columns (handles mixed ISO + M/D/YY)
+--   3. CRLF: Uses \r\n for files with Windows line endings
+--   4. Missing Sun table load added
+--   5. Locations/Users: Preserve explicit IDs from CSV
+--   6. Passwords: Map all 11 CSV columns (was only mapping 9)
 
 USE `EdgewaterMaster`;
 SET FOREIGN_KEY_CHECKS = 0;
 
--- Load lookup and reference tables first
+-- NO_AUTO_VALUE_ON_ZERO: lets 0 insert as literal 0 in AUTO_INCREMENT columns
+-- Removes STRICT_TRANS_TABLES: prevents single bad row from aborting entire LOAD DATA
+SET SESSION sql_mode = 'NO_AUTO_VALUE_ON_ZERO';
+
+-- ==================== LOOKUP / REFERENCE TABLES ====================
+
 LOAD DATA INFILE '/var/lib/mysql-files/ItemType.csv'
 INTO TABLE `T_ItemType`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
@@ -60,13 +73,20 @@ SET
     SupplierComments = NULLIF(@SupplierComments, ''),
     SupplierType = NULLIF(@SupplierType, '');
 
+-- GrowingSeason: StartDate/EndDate may be M/D/YY or ISO
 LOAD DATA INFILE '/var/lib/mysql-files/GrowingSeason.csv'
 INTO TABLE `T_GrowingSeason`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 (GrowingSeasonID, GrowingSeason, @StartDate, @EndDate)
 SET 
-    StartDate = NULLIF(@StartDate, ''),
-    EndDate = NULLIF(@EndDate, '');
+    StartDate = CASE
+        WHEN @StartDate LIKE '%/%' THEN STR_TO_DATE(@StartDate, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@StartDate, '')
+    END,
+    EndDate = CASE
+        WHEN @EndDate LIKE '%/%' THEN STR_TO_DATE(@EndDate, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@EndDate, '')
+    END;
 
 LOAD DATA INFILE '/var/lib/mysql-files/OrderItemTypes.csv'
 INTO TABLE `T_OrderItemTypes`
@@ -78,14 +98,21 @@ INTO TABLE `T_OrderNotes`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 (OrderNoteID, OrderNote);
 
--- Load T_Locations before T_OrderItemDestination (dependency)
+-- Locations: BOM + CRLF. Preserve explicit LocationID (0,1,2) for FK references.
 LOAD DATA INFILE '/var/lib/mysql-files/Locations.csv'
 INTO TABLE `T_Locations`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-(@LocationID, @Location)
+(LocationID, @Location)
 SET Location = NULLIF(@Location, '');
 
--- Load item data
+-- Sun: Was missing entirely from original LoadData.sql
+LOAD DATA INFILE '/var/lib/mysql-files/Sun.csv'
+INTO TABLE `T_Sun`
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+(SunConditionPic, SunConditionName);
+
+-- ==================== ITEM DATA ====================
+
 LOAD DATA INFILE '/var/lib/mysql-files/Items.csv'
 INTO TABLE `T_Items`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
@@ -113,51 +140,76 @@ SET
     UnitPrice = NULLIF(@UnitPrice, ''),
     Year = NULLIF(@Year, '');
 
--- Load inventory and planting data
+-- ==================== INVENTORY AND PLANTING DATA ====================
+
+-- Plantings: CRLF + M/D/YY dates
 LOAD DATA INFILE '/var/lib/mysql-files/Plantings.csv'
 INTO TABLE `T_Plantings`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-(PlantingID, @DatePlanted, @ItemID, @UnitID, @NumberOfUnits, @PlantingComments)
+(PlantingID, @DatePlanted, @ItemID, @UnitID, @NumberOfUnits, @PlantingComments, @LocationID)
 SET 
-    DatePlanted = NULLIF(@DatePlanted, ''),
+    DatePlanted = CASE
+        WHEN @DatePlanted LIKE '%/%' THEN STR_TO_DATE(@DatePlanted, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@DatePlanted, '')
+    END,
     ItemID = NULLIF(@ItemID, ''),
     UnitID = NULLIF(@UnitID, ''),
     NumberOfUnits = NULLIF(@NumberOfUnits, ''),
-    PlantingComments = NULLIF(@PlantingComments, '');
+    PlantingComments = NULLIF(@PlantingComments, ''),
+    LocationID = NULLIF(@LocationID, '');
 
+-- Inventory: DateCounted may be M/D/YY or ISO
 LOAD DATA INFILE '/var/lib/mysql-files/Inventory.csv'
 INTO TABLE `T_Inventory`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 (InventoryID, @DateCounted, @ItemID, @UnitID, @NumberOfUnits, @InventoryComments)
 SET 
-    DateCounted = NULLIF(@DateCounted, ''),
+    DateCounted = CASE
+        WHEN @DateCounted LIKE '%/%' THEN STR_TO_DATE(@DateCounted, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@DateCounted, '')
+    END,
     ItemID = NULLIF(@ItemID, ''),
     UnitID = NULLIF(@UnitID, ''),
     NumberOfUnits = NULLIF(@NumberOfUnits, ''),
     InventoryComments = NULLIF(@InventoryComments, '');
 
+-- Pitch: DatePitched may be M/D/YY or ISO
 LOAD DATA INFILE '/var/lib/mysql-files/Pitch.csv'
 INTO TABLE `T_Pitch`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 (PitchID, @DatePitched, @ItemID, @UnitID, @NumberOfUnits, @PitchComments, @PitchReason)
 SET 
-    DatePitched = NULLIF(@DatePitched, ''),
+    DatePitched = CASE
+        WHEN @DatePitched LIKE '%/%' THEN STR_TO_DATE(@DatePitched, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@DatePitched, '')
+    END,
     ItemID = NULLIF(@ItemID, ''),
     UnitID = NULLIF(@UnitID, ''),
     NumberOfUnits = NULLIF(@NumberOfUnits, ''),
     PitchComments = NULLIF(@PitchComments, ''),
     PitchReason = NULLIF(@PitchReason, '');
 
--- Load order data
+-- ==================== ORDER DATA ====================
+
+-- Orders: DatePlaced/DateDue/DateReceived may be M/D/YY or ISO
 LOAD DATA INFILE '/var/lib/mysql-files/Orders.csv'
 INTO TABLE `T_Orders`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 (OrderID, @GrowingSeasonID, @DatePlaced, @DateDue, @DateReceived, @SupplierID, @OrderNumber, @ShipperID, @TrackingNumber, @OrderComments, @TotalCost, @GrowingSeason, @BrokerID)
 SET 
     GrowingSeasonID = NULLIF(@GrowingSeasonID, ''),
-    DatePlaced = NULLIF(@DatePlaced, ''),
-    DateDue = NULLIF(@DateDue, ''),
-    DateReceived = NULLIF(@DateReceived, ''),
+    DatePlaced = CASE
+        WHEN @DatePlaced LIKE '%/%' THEN STR_TO_DATE(@DatePlaced, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@DatePlaced, '')
+    END,
+    DateDue = CASE
+        WHEN @DateDue LIKE '%/%' THEN STR_TO_DATE(@DateDue, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@DateDue, '')
+    END,
+    DateReceived = CASE
+        WHEN @DateReceived LIKE '%/%' THEN STR_TO_DATE(@DateReceived, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@DateReceived, '')
+    END,
     SupplierID = NULLIF(@SupplierID, ''),
     OrderNumber = NULLIF(@OrderNumber, ''),
     ShipperID = NULLIF(@ShipperID, ''),
@@ -185,31 +237,55 @@ SET
     Leftover = NULLIF(@Leftover, ''),
     ToOrder = NULLIF(@ToOrder, '');
 
--- Load AUTO_INCREMENT tables (skip primary key column)
+-- ==================== AUTO_INCREMENT TABLES ====================
+
+-- Users: BOM + CRLF. Preserve explicit UserID for FK from Passwords.
 LOAD DATA INFILE '/var/lib/mysql-files/Users.csv'
 INTO TABLE `T_Users`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-(@UserID, @Role, @PermissionLevel, @Email, @Active)
+(UserID, @Role, @PermissionLevel, @Email, @Active)
 SET 
     Role = NULLIF(@Role, ''),
     PermissionLevel = NULLIF(@PermissionLevel, ''),
     Email = NULLIF(@Email, ''),
     Active = IF(@Active IN ('True', 'TRUE', '1', 'true'), 1, 0);
 
+-- Passwords: CRLF + 11 CSV columns. Multiple DATETIME columns may be M/D/YY.
 LOAD DATA INFILE '/var/lib/mysql-files/Passwords.csv'
 INTO TABLE `T_Passwords`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
-(@PasswordID, @UserID, @PasswordHash, @PasswordResetToken, @PasswordResetExpiry, @LastLogin, @LastPasswordChange, @FailedLoginAttempts, @AccountLockedUntil)
+(@PasswordID, @UserID, @PasswordHash, @PasswordResetToken, @PasswordResetExpiry, @LastLogin, @LastPasswordChange, @FailedLoginAttempts, @AccountLockedUntil, @CreatedAt, @UpdatedAt)
 SET 
     UserID = NULLIF(@UserID, ''),
     PasswordHash = NULLIF(@PasswordHash, ''),
     PasswordResetToken = NULLIF(@PasswordResetToken, ''),
-    PasswordResetExpiry = NULLIF(@PasswordResetExpiry, ''),
-    LastLogin = NULLIF(@LastLogin, ''),
-    LastPasswordChange = NULLIF(@LastPasswordChange, ''),
+    PasswordResetExpiry = CASE
+        WHEN @PasswordResetExpiry LIKE '%/%' THEN STR_TO_DATE(@PasswordResetExpiry, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@PasswordResetExpiry, '')
+    END,
+    LastLogin = CASE
+        WHEN @LastLogin LIKE '%/%' THEN STR_TO_DATE(@LastLogin, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@LastLogin, '')
+    END,
+    LastPasswordChange = CASE
+        WHEN @LastPasswordChange LIKE '%/%' THEN STR_TO_DATE(@LastPasswordChange, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@LastPasswordChange, '')
+    END,
     FailedLoginAttempts = IFNULL(NULLIF(@FailedLoginAttempts, ''), 0),
-    AccountLockedUntil = NULLIF(@AccountLockedUntil, '');
+    AccountLockedUntil = CASE
+        WHEN @AccountLockedUntil LIKE '%/%' THEN STR_TO_DATE(@AccountLockedUntil, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@AccountLockedUntil, '')
+    END,
+    CreatedAt = CASE
+        WHEN @CreatedAt LIKE '%/%' THEN STR_TO_DATE(@CreatedAt, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@CreatedAt, '')
+    END,
+    UpdatedAt = CASE
+        WHEN @UpdatedAt LIKE '%/%' THEN STR_TO_DATE(@UpdatedAt, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@UpdatedAt, '')
+    END;
 
+-- SeasonalNotes: BOM + CRLF. LastUpdate may be M/D/YY.
 LOAD DATA INFILE '/var/lib/mysql-files/SeasonalNotes.csv'
 INTO TABLE `T_SeasonalNotes`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
@@ -219,8 +295,12 @@ SET
     GrowingSeasonID = NULLIF(@GrowingSeasonID, ''),
     Greenhouse = IF(@Greenhouse IN ('True', 'TRUE', '1', 'true'), 1, 0),
     Note = NULLIF(@Note, ''),
-    LastUpdate = NULLIF(@LastUpdate, '');
+    LastUpdate = CASE
+        WHEN @LastUpdate LIKE '%/%' THEN STR_TO_DATE(@LastUpdate, '%m/%d/%y %H:%i')
+        ELSE NULLIF(@LastUpdate, '')
+    END;
 
+-- OrderItemDestination: BOM + CRLF
 LOAD DATA INFILE '/var/lib/mysql-files/OrderItemDestination.csv'
 INTO TABLE `T_OrderItemDestination`
 FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
@@ -231,6 +311,16 @@ SET
     UnitID = NULLIF(@UnitID, ''),
     LocationID = NULLIF(@LocationID, '');
 
+-- PlantingDestinations: BOM + CRLF
+LOAD DATA INFILE '/var/lib/mysql-files/PlantingDestinations.csv'
+INTO TABLE `T_PlantingDestinations`
+FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+(@PlantingDestinationID, @PlantingID, @LocationID, @UnitsDestined, @PurposeComments)
+SET
+    PlantingID = NULLIF(@PlantingID, ''),
+    LocationID = NULLIF(@LocationID, ''),
+    UnitsDestined = NULLIF(@UnitsDestined, ''),
+    PurposeComments = NULLIF(@PurposeComments, '');
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -252,8 +342,10 @@ UNION ALL SELECT 'T_Inventory', COUNT(*) FROM T_Inventory
 UNION ALL SELECT 'T_Pitch', COUNT(*) FROM T_Pitch
 UNION ALL SELECT 'T_Orders', COUNT(*) FROM T_Orders
 UNION ALL SELECT 'T_OrderItems', COUNT(*) FROM T_OrderItems
+UNION ALL SELECT 'T_Sun', COUNT(*) FROM T_Sun
 UNION ALL SELECT 'T_Users', COUNT(*) FROM T_Users
 UNION ALL SELECT 'T_Passwords', COUNT(*) FROM T_Passwords
 UNION ALL SELECT 'T_SeasonalNotes', COUNT(*) FROM T_SeasonalNotes
 UNION ALL SELECT 'T_OrderItemDestination', COUNT(*) FROM T_OrderItemDestination
-UNION ALL SELECT 'T_Locations', COUNT(*) FROM T_Locations;
+UNION ALL SELECT 'T_Locations', COUNT(*) FROM T_Locations
+UNION ALL SELECT 'T_PlantingDestinations', COUNT(*) FROM T_PlantingDestinations;
