@@ -21,7 +21,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-api.reset_cache("supplier_cache", api.get_supplier_full)
 
 # ==================== SESSION STATE ====================
 if "show_add_form" not in st.session_state:
@@ -31,9 +30,9 @@ if "edit_mode" not in st.session_state:
 
 
 def refresh_cache():
-    """Refresh the supplier cache after mutations"""
+    """Refresh caches after mutations"""
     with st.spinner("Refreshing data..."):
-        api.reset_cache("supplier_cache", api.get_supplier_full)
+        api.clear_lookup_caches()
     st.success("✅ Data refreshed!")
 
 

@@ -248,6 +248,15 @@ class PlantingsFullViewPayload(TypedDict, total=False):
     DatePlanted: datetime
     NumberOfUnits: str
     PlantingComments: str
+    # Planting location fields
+    PlantingLocationID: int
+    PlantingLocation: str
+    # PlantingDestination fields
+    PlantingDestinationID: int
+    DestinationLocationID: int
+    DestinationLocation: str
+    UnitsDestined: str
+    PurposeComments: str
     # Item fields
     ItemID: int
     Item: str

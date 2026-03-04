@@ -73,6 +73,7 @@ class EdgewaterAPI:
         """
         Constructor for EdgewaterAPI
         """
+        # Path configuration
         self.SCRIPT_DIR = Path(__file__).parent
         self.PROJECT_ROOT = self.SCRIPT_DIR.parent
         self.LOGO_PATH = (
@@ -89,34 +90,6 @@ class EdgewaterAPI:
             / "image_assets"
             / "farmstand_background.png"
         )
-        # views cache (multi - table)
-        self.inventory_view_cache = None
-        self.planting_view_cache = None
-        self.label_view_cache = None
-        self.order_view_cache = None
-        self.pitch_view_cache = None
-        # single table cache
-        self.broker_cache = None
-        self.item_type_cache = None
-        self.unit_category_cache = None
-        self.unit_cache = None
-        self.shipper_cache = None
-        self.supplier_cache = None
-        self.growing_season_cache = None
-        self.order_item_type_cache = None
-        self.order_note_cache = None
-        self.item_cache = None
-        self.price_cache = None
-        self.planting_cache = None
-        self.inventory_cache = None
-        self.pitch_cache = None
-        self.order_cache = None
-        self.order_item_cache = None
-        self.location_cache = None
-        self.user_cache = None
-        self.seasonal_notes_cache = None
-        self.order_item_destination_cache = None
-        # TODO ask about data collection for sales
 
     def _get_base64_image(self, image_path):
         """Convert image to base64 for CSS background"""
@@ -192,32 +165,455 @@ class EdgewaterAPI:
                 unsafe_allow_html=True,
             )
 
-    """ Cache Management """
+    """ Cache Management - Two-tier system
+    
+    Tier 1: Lookup tables (@st.cache_data with TTL)
+        Small, rarely-changing reference data (items, units, types, locations, etc.)
+        Auto-expires after TTL, shared across sessions.
+        
+    Tier 2: View caches (st.session_state)
+        Large view data (inventory, plantings, orders). Loaded once per session,
+        explicit refresh via refresh button. Pages derive filtered working sets
+        from these.
+    """
 
-    def reset_cache(self, target_cache: str, get_method: Callable) -> None:
-        """
-        Reset a cache by calling the get_method and storing result in the named cache attribute
+    # ===== TIER 1: CACHED LOOKUP LOADERS =====
+    # These are static methods using @st.cache_data so they persist across reruns
+    # and are shared across sessions. TTL ensures they refresh periodically.
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_items():
+        from models import Item
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(Item).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} items (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading items: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_item_types():
+        from models import ItemType
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(ItemType).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} item types (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading item types: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_units():
+        from models import Unit
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(Unit).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} units (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading units: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_unit_categories():
+        from models import UnitCategory
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(UnitCategory).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} unit categories (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading unit categories: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_locations():
+        from models import Location
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(Location).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} locations (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading locations: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_suppliers():
+        from models import Supplier
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(Supplier).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} suppliers (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading suppliers: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_shippers():
+        from models import Shipper
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(Shipper).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} shippers (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading shippers: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_brokers():
+        from models import Broker
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(Broker).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} brokers (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading brokers: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_growing_seasons():
+        from models import GrowingSeason
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(GrowingSeason).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                logger.info(f"Loaded {len(data)} growing seasons (cached)")
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading growing seasons: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_order_item_types():
+        from models import OrderItemType
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(OrderItemType).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading order item types: {e}")
+            return pd.DataFrame()
+
+    @staticmethod
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _load_order_notes():
+        from models import OrderNote
+        from database import get_db_session
+
+        try:
+            with get_db_session() as session:
+                results = session.query(OrderNote).all()
+                data = [
+                    {k: v for k, v in r.__dict__.items() if k != "_sa_instance_state"}
+                    for r in results
+                ]
+                return pd.DataFrame(data)
+        except Exception as e:
+            logger.error(f"Error loading order notes: {e}")
+            return pd.DataFrame()
+
+    # ===== TIER 1: PROPERTY ACCESSORS =====
+    # Pages use these just like before: api.item_cache, api.unit_cache, etc.
+    # But now they hit @st.cache_data instead of instance attributes.
+
+    @property
+    def item_cache(self):
+        return EdgewaterAPI._load_items()
+
+    @property
+    def item_type_cache(self):
+        return EdgewaterAPI._load_item_types()
+
+    @property
+    def unit_cache(self):
+        return EdgewaterAPI._load_units()
+
+    @property
+    def unit_category_cache(self):
+        return EdgewaterAPI._load_unit_categories()
+
+    @property
+    def location_cache(self):
+        return EdgewaterAPI._load_locations()
+
+    @property
+    def supplier_cache(self):
+        return EdgewaterAPI._load_suppliers()
+
+    @property
+    def shipper_cache(self):
+        return EdgewaterAPI._load_shippers()
+
+    @property
+    def broker_cache(self):
+        return EdgewaterAPI._load_brokers()
+
+    @property
+    def growing_season_cache(self):
+        return EdgewaterAPI._load_growing_seasons()
+
+    @property
+    def order_item_type_cache(self):
+        return EdgewaterAPI._load_order_item_types()
+
+    @property
+    def order_note_cache(self):
+        return EdgewaterAPI._load_order_notes()
+
+    # ===== TIER 2: SESSION-STATE VIEW CACHES =====
+    # Large view data stored in st.session_state, loaded once per session.
+
+    def _get_session_cache(self, key: str, loader: Callable) -> pd.DataFrame:
+        """Get a view cache from session_state, loading if not present"""
+        if key not in st.session_state or st.session_state[key] is None:
+            try:
+                result = loader()
+                st.session_state[key] = result
+                logger.info(f"Loaded {key} into session_state ({len(result)} rows)")
+            except Exception as e:
+                logger.error(f"Failed to load {key}: {e}")
+                st.session_state[key] = pd.DataFrame()
+        return st.session_state[key]
+
+    def _refresh_session_cache(self, key: str, loader: Callable) -> pd.DataFrame:
+        """Force refresh a view cache in session_state"""
+        try:
+            result = loader()
+            st.session_state[key] = result
+            logger.info(f"Refreshed {key} ({len(result)} rows)")
+            return result
+        except Exception as e:
+            logger.error(f"Failed to refresh {key}: {e}")
+            st.session_state[key] = pd.DataFrame()
+            return pd.DataFrame()
+
+    @property
+    def inventory_view_cache(self):
+        return self._get_session_cache("_inv_view", self.get_inventory_view_full)
+
+    @property
+    def planting_view_cache(self):
+        return self._get_session_cache("_plant_view", self.get_plantings_view_full)
+
+    @property
+    def order_view_cache(self):
+        return self._get_session_cache("_order_view", self.get_orders_view_full)
+
+    @property
+    def label_view_cache(self):
+        return self._get_session_cache("_label_view", self.get_label_view_full)
+
+    @property
+    def pitch_view_cache(self):
+        return self._get_session_cache("_pitch_view", self.get_pitch_view)
+
+    # ===== TIER 2: SESSION-STATE SINGLE-TABLE CACHES (admin pages) =====
+    # These are the raw table caches for large tables that admin pages use directly.
+
+    @property
+    def inventory_cache(self):
+        return self._get_session_cache("_inv_table", self.get_inventory_full)
+
+    @property
+    def planting_cache(self):
+        return self._get_session_cache("_plant_table", self.get_planting_full)
+
+    @property
+    def pitch_cache(self):
+        return self._get_session_cache("_pitch_table", self.get_pitch_full)
+
+    @property
+    def order_cache(self):
+        return self._get_session_cache("_order_table", self.get_order_full)
+
+    @property
+    def order_item_cache(self):
+        return self._get_session_cache("_order_item_table", self.get_order_item_full)
+
+    @property
+    def price_cache(self):
+        return self._get_session_cache("_price_table", self.get_price_full)
+
+    @property
+    def seasonal_notes_cache(self):
+        return self._get_session_cache(
+            "_seasonal_notes_table", self.get_seasonal_notes_full
+        )
+
+    @property
+    def order_item_destination_cache(self):
+        return self._get_session_cache(
+            "_oid_table", self.get_order_item_destination_full
+        )
+
+    @property
+    def user_cache(self):
+        return self._get_session_cache("_user_table", self.get_user_full)
+
+    def refresh_view_cache(self, view_name: str) -> None:
+        """Refresh a specific view or table cache. Call from page refresh buttons.
 
         Args:
-            target_cache: Name of the cache attribute (e.g., "inventory_view_cache")
-            get_method: Method to call to populate the cache
+            view_name: One of 'inventory', 'plantings', 'orders', 'labels', 'pitch',
+                       'inventory_table', 'planting_table', 'pitch_table', 'order_table',
+                       'order_item_table', 'price_table', 'seasonal_notes_table',
+                       'oid_table', 'user_table', 'all'
+        """
+        view_map = {
+            "inventory": ("_inv_view", self.get_inventory_view_full),
+            "plantings": ("_plant_view", self.get_plantings_view_full),
+            "orders": ("_order_view", self.get_orders_view_full),
+            "labels": ("_label_view", self.get_label_view_full),
+            "pitch": ("_pitch_view", self.get_pitch_view),
+            "inventory_table": ("_inv_table", self.get_inventory_full),
+            "planting_table": ("_plant_table", self.get_planting_full),
+            "pitch_table": ("_pitch_table", self.get_pitch_full),
+            "order_table": ("_order_table", self.get_order_full),
+            "order_item_table": ("_order_item_table", self.get_order_item_full),
+            "price_table": ("_price_table", self.get_price_full),
+            "seasonal_notes_table": (
+                "_seasonal_notes_table",
+                self.get_seasonal_notes_full,
+            ),
+            "oid_table": ("_oid_table", self.get_order_item_destination_full),
+            "user_table": ("_user_table", self.get_user_full),
+        }
+        if view_name == "all":
+            for key, loader in view_map.values():
+                self._refresh_session_cache(key, loader)
+        elif view_name in view_map:
+            key, loader = view_map[view_name]
+            self._refresh_session_cache(key, loader)
+        else:
+            logger.warning(f"Unknown view cache: {view_name}")
+
+    @staticmethod
+    def clear_lookup_caches():
+        """Force clear all @st.cache_data lookup caches"""
+        EdgewaterAPI._load_items.clear()
+        EdgewaterAPI._load_item_types.clear()
+        EdgewaterAPI._load_units.clear()
+        EdgewaterAPI._load_unit_categories.clear()
+        EdgewaterAPI._load_locations.clear()
+        EdgewaterAPI._load_suppliers.clear()
+        EdgewaterAPI._load_shippers.clear()
+        EdgewaterAPI._load_brokers.clear()
+        EdgewaterAPI._load_growing_seasons.clear()
+        EdgewaterAPI._load_order_item_types.clear()
+        EdgewaterAPI._load_order_notes.clear()
+        logger.info("All lookup caches cleared")
+
+    # ===== TIER 2.5: FILTERED WORKING SETS =====
+    # Pages store their filtered subset in session_state so card expansions
+    # only search the filtered data, not the full view.
+
+    @staticmethod
+    def set_working_set(page_key: str, df: pd.DataFrame) -> None:
+        """Store a filtered working set for a page"""
+        st.session_state[f"_working_{page_key}"] = df
+
+    @staticmethod
+    def get_working_set(page_key: str) -> Optional[pd.DataFrame]:
+        """Get the filtered working set for a page"""
+        return st.session_state.get(f"_working_{page_key}")
+
+    # Legacy compatibility — reset_cache still works but pages should migrate
+    def reset_cache(self, target_cache: str, get_method: Callable) -> None:
+        """
+        Legacy cache reset. For view caches, use refresh_view_cache() instead.
+        For lookup caches, they auto-refresh via TTL.
         """
         try:
             result = get_method()
-            setattr(self, target_cache, result)
-            logger.info(f"Successfully cached {target_cache}")
+            setattr(self, f"_{target_cache}", result)
+            logger.info(f"Successfully cached {target_cache} (legacy)")
         except Exception as e:
             logger.error(f"Failed to cache data for {target_cache}: {e}")
-            setattr(self, target_cache, pd.DataFrame())
+            setattr(self, f"_{target_cache}", pd.DataFrame())
 
     def action_and_cache(
         self, action: Callable, target_cache: str, get_method: Callable
     ) -> None:
+        """Execute an action then refresh the relevant cache"""
         try:
             action()
-            self.target_cache = self.reset_cache(
-                target_cache=target_cache, get_method=get_method
-            )
+            self.reset_cache(target_cache=target_cache, get_method=get_method)
         except Exception as e:
             print(
                 f"error with action and cache function {action}, {target_cache}, {get_method} produce: {e}"

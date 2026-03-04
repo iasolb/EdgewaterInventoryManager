@@ -21,11 +21,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-api.reset_cache("order_cache", api.get_order_full)
-api.reset_cache("supplier_cache", api.get_supplier_full)
-api.reset_cache("shipper_cache", api.get_shipper_full)
-api.reset_cache("broker_cache", api.get_broker_full)
-api.reset_cache("growing_season_cache", api.get_growing_season_full)
 
 # ==================== SESSION STATE ====================
 if "show_add_form" not in st.session_state:
@@ -37,11 +32,8 @@ if "edit_mode" not in st.session_state:
 def refresh_cache():
     """Refresh caches after mutations"""
     with st.spinner("Refreshing data..."):
-        api.reset_cache("order_cache", api.get_order_full)
-        api.reset_cache("supplier_cache", api.get_supplier_full)
-        api.reset_cache("shipper_cache", api.get_shipper_full)
-        api.reset_cache("broker_cache", api.get_broker_full)
-        api.reset_cache("growing_season_cache", api.get_growing_season_full)
+        api.refresh_view_cache("order_table")
+        api.clear_lookup_caches()
     st.success("✅ Data refreshed!")
 
 

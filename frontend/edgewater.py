@@ -77,6 +77,9 @@ with btn_col5:
 with btn_col6:
     if st.button("Employee Pitch Page", disabled=False):
         st.switch_page("pages/employee_pitch.py")
+with btn_col7:
+    if st.button("Employee Plantings", disabled=False):
+        st.switch_page("pages/employee_plantings.py")
 st.markdown("---")
 st.markdown(
     """

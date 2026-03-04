@@ -430,6 +430,17 @@ class PlantingsFullView(Base):
     NumberOfUnits = Column(Text)
     PlantingComments = Column(Text)
 
+    # Planting location fields
+    PlantingLocationID = Column(Integer)
+    PlantingLocation = Column(Text)
+
+    # PlantingDestination fields
+    PlantingDestinationID = Column(Integer)
+    DestinationLocationID = Column(Integer)
+    DestinationLocation = Column(Text)
+    UnitsDestined = Column(Text)
+    PurposeComments = Column(Text)
+
     # Item fields
     ItemID = Column(Integer)
     Item = Column(Text)
