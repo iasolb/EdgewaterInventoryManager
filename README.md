@@ -2,7 +2,7 @@
 
 A full-stack inventory management system built for Edgewater Farm. Migrated from a legacy Microsoft Access database to a modern MySQL + Python + Streamlit architecture. Manages plant inventory, planting records, order tracking, label generation, and employee workflows across greenhouse and field operations.
 
-**Author:** Ian Solberg
+**Author:** Ian Solberg | July '25 - Present
 
 ---
 
