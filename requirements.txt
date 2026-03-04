@@ -1,7 +1,7 @@
 # Database
 SQLAlchemy>=2.0,<3.0
 pymysql>=1.1,<2.0
-cryptography>=42.0,<45.0
+cryptography>=42.0,<44.0
 # Web UI
 streamlit>=1.38,<2.0
 

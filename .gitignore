@@ -4,6 +4,8 @@
 .env.*.local
 venv/
 __pycache__/
+backups/
+uploads/
 # Dependencies
 node_modules/
 npm-debug.log*
