@@ -32,7 +32,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+from edgewater_theme import apply_theme
 
+apply_theme()
 # ===== AUTH GATE =====
 auth = Authenticate()
 auth.require_role(ROLE_SUPERADMIN)

@@ -23,10 +23,10 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed",
 )
+from edgewater_theme import apply_theme
 
-api.set_background(
-    api.BACKGROUND_PATH, black_and_white=True, overlay_opacity=0.2, blur=0
-)
+apply_theme()
+
 
 st.title("Sales and Analytics")
 st.write("This feature is coming soon!")

@@ -27,7 +27,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+from edgewater_theme import apply_theme
 
+apply_theme()
 # ===== INITIALIZE API =====
 api = EdgewaterAPI()
 

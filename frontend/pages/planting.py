@@ -21,7 +21,9 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+from edgewater_theme import apply_theme
 
+apply_theme()
 # ==================== SESSION STATE ====================
 if "show_add_form" not in st.session_state:
     st.session_state.show_add_form = False
