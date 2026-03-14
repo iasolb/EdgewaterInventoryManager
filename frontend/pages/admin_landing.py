@@ -84,5 +84,4 @@ with row4[3]:
     if st.button("Brokers", use_container_width=True):
         st.switch_page("pages/broker.py")
 with row4[4]:
-    if st.button("Users", use_container_width=True):
-        st.switch_page("pages/users.py")
+    pass

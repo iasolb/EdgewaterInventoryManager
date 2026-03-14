@@ -1,2 +1,5 @@
-UserID,Role,PermissionLevel,Email,Active
-1,Admin,superadmin,smshoude@gmail.com,1
+UserID,Role,PermissionLevel,Email,Active,CreatedAt,UpdatedAt
+1,Admin,superadmin,smshoude@gmail.com,1,3/14/26 18:47,3/14/26 18:47
+2,Developer,superadmin,ianspraguesolberg@gmail.com,1,3/14/26 18:47,3/14/26 18:50
+3,Farm Worker,employee,solberg.i@northeastern.edu,1,3/14/26 18:47,3/14/26 18:47
+4,Farm Worker,employee,intruder_alert@gmail.com,2,3/14/26 15:06,3/14/26 15:07

@@ -4,7 +4,7 @@ Mobile-first pitch entry for field workers
 Big buttons, fast search, quick data entry
 Author: Ian Solberg
 Date: 10-16-2025
-Updated: 3-3-2026 - Mobile-first rebuild matching employee plantings style
+Updated: 3-14-2026 - Grouped location picker, auth gate
 """
 
 # ====== IMPORTS ======
@@ -16,8 +16,10 @@ from datetime import datetime
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
+sys.path.insert(0, str(Path(__file__).parent))
 
 from rest.api import EdgewaterAPI
+from rest.authenticate import Authenticate, ROLE_EMPLOYEE
 from models import Pitch
 
 # ===== STREAMLIT CONFIG =====
@@ -28,6 +30,10 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ===== AUTH GATE =====
+auth = Authenticate()
+auth.require_role(ROLE_EMPLOYEE)
+
 # ===== INITIALIZE API =====
 api = EdgewaterAPI()
 
@@ -37,7 +43,6 @@ st.markdown(
     <style>
         [data-testid="stSidebarNav"] { display: none; }
 
-        /* Bigger touch targets for mobile */
         .stButton > button {
             min-height: 3.2rem;
             font-size: 1.1rem;
@@ -51,7 +56,6 @@ st.markdown(
             min-height: 2.8rem;
         }
 
-        /* Tighten up padding on mobile */
         .main .block-container {
             padding-top: 1rem;
             padding-bottom: 2rem;
@@ -92,10 +96,6 @@ st.markdown(
 # ===== SESSION STATE =====
 if "pitch_success" not in st.session_state:
     st.session_state.pitch_success = None
-
-# ===== CACHE DATA =====
-# Lookup tables auto-cached via @st.cache_data
-# View data loaded lazily into session_state
 
 
 def refresh_data():
@@ -157,7 +157,6 @@ if st.session_state.pitch_success:
 st.markdown("---")
 
 # ===== REASON QUICK-SELECT =====
-# Big buttons for reason — tap once, stays selected
 st.markdown("### ❓ Why are you pitching?")
 
 if "selected_reason" not in st.session_state:
@@ -238,7 +237,6 @@ with form_col:
                 selected_item_id = match_ids[idx]
                 selected_item = items_df[items_df["ItemID"] == selected_item_id].iloc[0]
 
-                # Quick item info
                 info1, info2 = st.columns(2)
                 with info1:
                     st.caption(f"ID: {selected_item_id}")
@@ -260,7 +258,6 @@ with form_col:
             row1_col1, row1_col2 = st.columns(2)
 
             with row1_col1:
-                # Unit selection
                 units_df = api.unit_cache
                 if units_df is not None and not units_df.empty:
                     unit_options = units_df.apply(
@@ -318,7 +315,10 @@ with form_col:
                         display_name = str(selected_item["Item"])
                         if pd.notna(selected_item.get("Variety")):
                             display_name += f" - {selected_item['Variety']}"
-                        st.session_state.pitch_success = f"✅ Pitched {int(number_of_units)}× {display_name} — {st.session_state.selected_reason}"
+                        st.session_state.pitch_success = (
+                            f"✅ Pitched {int(number_of_units)}× {display_name} "
+                            f"— {st.session_state.selected_reason}"
+                        )
                         refresh_data()
                         st.rerun()
                     except Exception as e:
@@ -343,7 +343,6 @@ with log_col:
         ].copy()
 
         if not today_pitches.empty:
-            # Today stats
             stat1, stat2 = st.columns(2)
             with stat1:
                 st.markdown(
@@ -395,7 +394,6 @@ with log_col:
         else:
             st.caption("No pitches logged today yet.")
 
-        # Week summary
         st.markdown("---")
         week_ago = today - pd.Timedelta(days=7)
         week_pitches = pitch_df[
