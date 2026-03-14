@@ -1,9 +1,11 @@
 """
 Inventory Manager - Edgewater Inventory Management System
-Modern card-based interface with expandable details
+Manage inventory counts with summary, detail, table, and create views
 Author: Ian Solberg
 Date: 1-31-2026
 Updated: 3-3-2026 - Added LocationID support, theme-safe styling
+Optimized: 3-14-2026 - st.expander replaces button+rerun, pre-indexed lookups,
+           cached derived data, FK decode maps, inline editing
 """
 
 # ====== IMPORTS ======
@@ -35,16 +37,13 @@ api = EdgewaterAPI()
 st.markdown(
     """
     <style>
-        [data-testid="stSidebarNav"] {
-            display: none;
-        }
+        [data-testid="stSidebarNav"] { display: none; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
 # ===== THEME-SAFE CSS =====
-# Uses inline styles and neutral colors that work in both light and dark mode
 st.markdown(
     """
     <style>
@@ -107,14 +106,8 @@ st.markdown(
 )
 
 # ===== SESSION STATE =====
-if "expanded_card" not in st.session_state:
-    st.session_state.expanded_card = None
 if "show_add_modal" not in st.session_state:
     st.session_state.show_add_modal = False
-if "edit_mode" not in st.session_state or not isinstance(
-    st.session_state.edit_mode, dict
-):
-    st.session_state.edit_mode = {}
 if "filter_search" not in st.session_state:
     st.session_state.filter_search = ""
 if "filter_types" not in st.session_state:
@@ -126,38 +119,177 @@ if "filter_locations" not in st.session_state:
 if "results_limit" not in st.session_state:
     st.session_state.results_limit = 25
 
-# ===== CACHE DATA =====
-# Lookup tables auto-cached via @st.cache_data (api.item_cache, etc.)
-# View data loaded lazily into session_state (api.inventory_view_cache)
-# No explicit loading needed — properties handle it.
+
+# ===== HELPERS =====
 
 
 def refresh_data():
-    """Refresh all data for this page"""
+    """Refresh view cache and invalidate derived structures."""
     with st.spinner("Refreshing data..."):
         api.refresh_view_cache("inventory")
         api.clear_lookup_caches()
-    st.success("✅ Data refreshed!", icon="✅")
-
-
-def toggle_card_expansion(inventory_id):
-    """Toggle expansion state of a card"""
-    if st.session_state.expanded_card == inventory_id:
-        st.session_state.expanded_card = None
-    else:
-        st.session_state.expanded_card = inventory_id
+        for key in ("_inv_sorted", "_inv_by_id"):
+            st.session_state.pop(key, None)
+    st.success("Data refreshed!", icon="✅")
 
 
 def format_date(date_value):
-    """Format datetime for display"""
     if pd.isna(date_value):
         return "Not set"
     if isinstance(date_value, str):
         try:
             date_value = pd.to_datetime(date_value)
-        except:
+        except Exception:
             return date_value
     return date_value.strftime("%b %d, %Y")
+
+
+def safe_float(val, default=0.0):
+    """Convert a value to float, handling fractions like '1 3/10'."""
+    if pd.isna(val) or val is None:
+        return default
+    if isinstance(val, (int, float)):
+        return float(val)
+    s = str(val).strip()
+    try:
+        return float(s)
+    except ValueError:
+        pass
+    # Handle mixed fractions: "1 3/10" -> 1.3
+    try:
+        from fractions import Fraction
+
+        parts = s.split()
+        if len(parts) == 2:
+            return float(int(parts[0]) + Fraction(parts[1]))
+        elif len(parts) == 1 and "/" in parts[0]:
+            return float(Fraction(parts[0]))
+    except Exception:
+        pass
+    return default
+
+
+# ================================================================
+# SHARED COLUMN CONFIG — built once, reused across tabs
+# ================================================================
+
+_COLUMN_CONFIG = {
+    "InventoryID": st.column_config.NumberColumn("ID", width="small"),
+    "Item": st.column_config.TextColumn("Item", width="medium"),
+    "Variety": st.column_config.TextColumn("Variety", width="small"),
+    "Color": st.column_config.TextColumn("Color", width="small"),
+    "Type": st.column_config.TextColumn("Type", width="small"),
+    "NumberOfUnits": st.column_config.TextColumn("Count", width="small"),
+    "UnitType": st.column_config.TextColumn("Unit", width="small"),
+    "DateCounted": st.column_config.DatetimeColumn(
+        "Date Counted", format="MMM DD, YYYY", width="small"
+    ),
+    "Location": st.column_config.TextColumn("Location", width="small"),
+    "LocationID": st.column_config.TextColumn("Location", width="small"),
+    "Inactive": st.column_config.CheckboxColumn("Inactive", width="small"),
+    "ShouldStock": st.column_config.CheckboxColumn("Stock?", width="small"),
+    "SunConditions": st.column_config.TextColumn("Sun", width="small"),
+    "UnitCategory": st.column_config.TextColumn("Unit Cat.", width="small"),
+    "InventoryComments": st.column_config.TextColumn("Comments", width="medium"),
+}
+
+# Columns shown in table view
+_TABLE_DISPLAY_COLS = [
+    "InventoryID",
+    "Item",
+    "Variety",
+    "Color",
+    "Type",
+    "NumberOfUnits",
+    "UnitType",
+    "DateCounted",
+    "Location",
+    "Inactive",
+    "ShouldStock",
+]
+
+# Columns that map to the Inventory base table and can be edited inline
+_EDITABLE_INVENTORY_COLS = {
+    "NumberOfUnits",
+    "DateCounted",
+    "InventoryComments",
+    "LocationID",
+}
+
+# Display labels
+_COL_LABELS = {
+    "InventoryID": "ID",
+    "Item": "Item",
+    "Variety": "Variety",
+    "Color": "Color",
+    "Type": "Type",
+    "NumberOfUnits": "Count",
+    "UnitType": "Unit",
+    "DateCounted": "Counted",
+    "Location": "Location",
+    "LocationID": "Location",
+    "Inactive": "Inactive",
+    "ShouldStock": "Stock?",
+    "InventoryComments": "Comments",
+    "SunConditions": "Sun",
+    "UnitCategory": "Unit Cat.",
+}
+
+
+# ================================================================
+# DATA LOADING — single read, derived structures cached in session_state
+# ================================================================
+
+_raw_cache = api.inventory_view_cache
+
+if _raw_cache is None or _raw_cache.empty:
+    st.markdown("# 📦 Inventory Manager")
+    st.info("No inventory data available. Check your database connection.")
+    if st.button("← Back to Home"):
+        st.switch_page("edgewater.py")
+    st.stop()
+
+inv_df = _raw_cache
+
+
+def _build_sorted(df: pd.DataFrame) -> pd.DataFrame:
+    """Sort inventory by date descending. Cached in session_state."""
+    if "DateCounted" in df.columns:
+        return df.sort_values("DateCounted", ascending=False)
+    return df
+
+
+def _build_inv_index(df: pd.DataFrame) -> dict:
+    """Pre-build {InventoryID: Series} for O(1) per-record lookups."""
+    return {row["InventoryID"]: row for _, row in df.iterrows()}
+
+
+if "_inv_sorted" not in st.session_state:
+    st.session_state["_inv_sorted"] = _build_sorted(inv_df)
+sorted_inv = st.session_state["_inv_sorted"]
+
+if "_inv_by_id" not in st.session_state:
+    st.session_state["_inv_by_id"] = _build_inv_index(inv_df)
+inv_by_id = st.session_state["_inv_by_id"]
+
+
+# ================================================================
+# FK decode maps for dropdown columns
+# These use Tier-1 cached lookups (no DB hit on rerun)
+# ================================================================
+
+_loc_df = api.location_cache if api.location_cache is not None else pd.DataFrame()
+
+# ID -> display name (for rendering)
+_LOC_ID_TO_NAME = (
+    dict(zip(_loc_df["LocationID"], _loc_df["Location"])) if not _loc_df.empty else {}
+)
+
+# Display name -> ID (for saving edits back to DB)
+_LOC_NAME_TO_ID = {v: k for k, v in _LOC_ID_TO_NAME.items()}
+
+# Options for SelectboxColumn (display names, with empty option)
+_LOC_DISPLAY_OPTIONS = [""] + sorted(_LOC_ID_TO_NAME.values())
 
 
 # ===== SIDEBAR =====
@@ -177,7 +309,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔍 Filters")
 
-    # Search filter
     search_term = st.text_input(
         "Search items",
         value=st.session_state.filter_search,
@@ -188,7 +319,6 @@ with st.sidebar:
         st.session_state.filter_search = search_term
         st.rerun()
 
-    # Item type filter
     item_types = (
         api.item_type_cache["Type"].tolist() if not api.item_type_cache.empty else []
     )
@@ -202,12 +332,7 @@ with st.sidebar:
         st.session_state.filter_types = selected_types
         st.rerun()
 
-    # Location filter
-    location_options = (
-        api.location_cache["Location"].tolist()
-        if api.location_cache is not None and not api.location_cache.empty
-        else []
-    )
+    location_options = _loc_df["Location"].tolist() if not _loc_df.empty else []
     selected_locations = st.multiselect(
         "Location",
         options=location_options,
@@ -218,7 +343,6 @@ with st.sidebar:
         st.session_state.filter_locations = selected_locations
         st.rerun()
 
-    # Status filter
     status_options = ["All", "Active", "Inactive", "Should Stock"]
     selected_status = st.selectbox(
         "Status",
@@ -230,7 +354,6 @@ with st.sidebar:
         st.session_state.filter_status = selected_status
         st.rerun()
 
-    # Clear filters
     if st.button("Clear All Filters", use_container_width=True):
         st.session_state.filter_search = ""
         st.session_state.filter_types = []
@@ -254,56 +377,29 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 📊 Statistics")
 
-    inventory_df = api.inventory_view_cache
-    if inventory_df is not None and not inventory_df.empty:
-        total_items = len(inventory_df)
-        unique_items = (
-            inventory_df["ItemID"].nunique() if "ItemID" in inventory_df.columns else 0
-        )
-        active_items = (
-            len(inventory_df[inventory_df["Inactive"] == False])
-            if "Inactive" in inventory_df.columns
-            else 0
-        )
+    total_items = len(inv_df)
+    unique_items = inv_df["ItemID"].nunique() if "ItemID" in inv_df.columns else 0
+    active_items = (
+        len(inv_df[inv_df["Inactive"] == False]) if "Inactive" in inv_df.columns else 0
+    )
 
-        st.metric("Total Counts", total_items)
-        st.metric("Unique Items", unique_items)
-        st.metric("Active Items", active_items)
+    st.metric("Total Counts", total_items)
+    st.metric("Unique Items", unique_items)
+    st.metric("Active Items", active_items)
 
 
 # ===== MAIN HEADER =====
-col1, col2, col3 = st.columns([2, 3, 2])
-
-with col1:
-    st.markdown("# 📦 Inventory Manager")
-
-with col3:
-    if st.button("➕ Add Inventory Count", use_container_width=True):
-        st.session_state.show_add_modal = True
-        st.rerun()
-
+st.markdown("# 📦 Inventory Manager")
 st.markdown("---")
 
-# ===== GET AND FILTER DATA =====
-inventory_df = api.inventory_view_cache.copy()
+# ===== TABS =====
+tab_cards, tab_table, tab_create = st.tabs(
+    ["📋 Inventory Cards", "📊 Table View", "➕ Add Count"]
+)
 
-if inventory_df.empty:
-    st.markdown(
-        """
-        <div class="empty-state">
-            <div class="empty-state-icon">📦</div>
-            <h3>No inventory records found</h3>
-            <p>Start by adding your first inventory count</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.stop()
+# ===== APPLY FILTERS =====
+filtered_df = sorted_inv
 
-# Apply filters
-filtered_df = inventory_df.copy()
-
-# Search filter
 if st.session_state.filter_search:
     search_lower = st.session_state.filter_search.lower()
     mask = (
@@ -313,18 +409,15 @@ if st.session_state.filter_search:
     )
     filtered_df = filtered_df[mask]
 
-# Type filter
 if st.session_state.filter_types:
     filtered_df = filtered_df[filtered_df["Type"].isin(st.session_state.filter_types)]
 
-# Location filter
 if st.session_state.filter_locations:
     if "Location" in filtered_df.columns:
         filtered_df = filtered_df[
             filtered_df["Location"].isin(st.session_state.filter_locations)
         ]
 
-# Status filter
 if st.session_state.filter_status == "Active":
     filtered_df = filtered_df[filtered_df["Inactive"] == False]
 elif st.session_state.filter_status == "Inactive":
@@ -332,519 +425,320 @@ elif st.session_state.filter_status == "Inactive":
 elif st.session_state.filter_status == "Should Stock":
     filtered_df = filtered_df[filtered_df["ShouldStock"] == True]
 
-# Sort by date (newest first)
-if "DateCounted" in filtered_df.columns:
-    filtered_df = filtered_df.sort_values("DateCounted", ascending=False)
-
-# Store total count before limiting
 total_filtered = len(filtered_df)
-
-# Apply results limit
 filtered_df = filtered_df.head(st.session_state.results_limit)
 
-# Store filtered set as working set for fast card expansion lookups
-api.set_working_set("inventory", filtered_df)
 
-# ===== DISPLAY RESULTS INFO =====
-result_col1, result_col2 = st.columns([3, 1])
-with result_col1:
+# ==================== TAB 1: INVENTORY CARDS ====================
+# Uses st.expander — expanding/collapsing does NOT trigger st.rerun().
+
+with tab_cards:
     if total_filtered > st.session_state.results_limit:
         st.markdown(
-            f"### Showing {len(filtered_df)} of {total_filtered} matching records ({len(inventory_df)} total)"
+            f"### Showing {len(filtered_df)} of {total_filtered} matching records ({total_items} total)"
         )
     else:
-        st.markdown(
-            f"### Showing {len(filtered_df)} of {len(inventory_df)} inventory counts"
+        st.markdown(f"### Showing {len(filtered_df)} of {total_items} inventory counts")
+
+    for idx, row in filtered_df.iterrows():
+        item_display = row["Item"] if pd.notna(row["Item"]) else "Unknown"
+        if pd.notna(row.get("Variety")):
+            item_display += f" - {row['Variety']}"
+        if pd.notna(row.get("Color")):
+            item_display += f" ({row['Color']})"
+
+        unit_label = row["UnitType"] if pd.notna(row.get("UnitType")) else ""
+        count_str = f"{row['NumberOfUnits']} {unit_label}"
+        loc_name = (
+            row["Location"]
+            if "Location" in row.index and pd.notna(row.get("Location"))
+            else "Unassigned"
         )
-with result_col2:
-    view_mode = st.selectbox(
-        "View", ["Cards", "Table"], key="view_mode", label_visibility="collapsed"
-    )
+        status_icon = "🔴" if row.get("Inactive") else "🟢"
+        date_str = format_date(row.get("DateCounted"))
 
-st.markdown("---")
+        expander_label = (
+            f"{status_icon}  **{item_display}** — {count_str} — "
+            f"📍 {loc_name} — {date_str}"
+        )
 
-# ===== ADD INVENTORY MODAL =====
-if st.session_state.show_add_modal:
-    with st.container():
-        st.markdown("### ➕ Add New Inventory Count")
+        with st.expander(expander_label, expanded=False):
+            # ---- Read-only summary ----
+            meta1, meta2, meta3 = st.columns(3)
 
-        with st.form("add_inventory_form", clear_on_submit=True):
-            # Guard against empty caches
-            items_df = api.item_cache
-            units_df = api.unit_cache
-
-            if items_df is None or items_df.empty or units_df is None or units_df.empty:
-                st.warning("⚠️ Item or Unit data not loaded. Please refresh data.")
-                st.form_submit_button("💾 Add Count", disabled=True)
-            else:
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    # Item selection
-                    item_options = items_df.apply(
-                        lambda x: (
-                            f"{x['Item']} - {x['Variety']}"
-                            if pd.notna(x["Variety"])
-                            else str(x["Item"])
-                        ),
-                        axis=1,
-                    ).tolist()
-                    item_ids = items_df["ItemID"].tolist()
-
-                    selected_item_label = st.selectbox(
-                        "Select Item *",
-                        options=item_options,
-                        key="form_item",
-                    )
-                    selected_item_id = (
-                        item_ids[item_options.index(selected_item_label)]
-                        if selected_item_label is not None
-                        else None
-                    )
-
-                    # Unit selection
-                    unit_options = units_df.apply(
-                        lambda x: (
-                            f"{x['UnitType']} - {x['UnitSize']}"
-                            if pd.notna(x["UnitSize"])
-                            else str(x["UnitType"])
-                        ),
-                        axis=1,
-                    ).tolist()
-                    unit_ids = units_df["UnitID"].tolist()
-
-                    selected_unit_label = st.selectbox(
-                        "Select Unit *",
-                        options=unit_options,
-                        key="form_unit",
-                    )
-                    selected_unit_id = (
-                        unit_ids[unit_options.index(selected_unit_label)]
-                        if selected_unit_label is not None
-                        else None
-                    )
-
-                with col2:
-                    number_of_units = st.number_input(
-                        "Number of Units *", min_value=0.0, step=1.0, key="form_count"
-                    )
-
-                    date_counted = st.date_input(
-                        "Date Counted", value=datetime.now().date(), key="form_date"
-                    )
-
-                    # Location selection
-                    loc_df = api.location_cache
-                    if loc_df is not None and not loc_df.empty:
-                        loc_options = ["None"] + loc_df["Location"].tolist()
-                        loc_ids = [None] + loc_df["LocationID"].tolist()
-
-                        selected_loc_label = st.selectbox(
-                            "Location",
-                            options=loc_options,
-                            key="form_location",
-                        )
-                        selected_location_id = loc_ids[
-                            loc_options.index(selected_loc_label)
-                        ]
-                    else:
-                        selected_location_id = None
-                        st.caption("No locations configured")
-
-                comments = st.text_area(
-                    "Comments (Optional)", key="form_comments", height=100
+            with meta1:
+                st.markdown("**Item Details**")
+                st.markdown(f"- **Item ID:** {row['ItemID']}")
+                st.markdown(f"- **Inventory ID:** {row['InventoryID']}")
+                st.markdown(
+                    f"- **Type:** {row['Type'] if pd.notna(row.get('Type')) else 'N/A'}"
+                )
+                st.markdown(
+                    f"- **Sun Conditions:** {row['SunConditions'] if pd.notna(row.get('SunConditions')) else 'Not specified'}"
+                )
+                st.markdown(
+                    f"- **Should Stock:** {'Yes' if row.get('ShouldStock') else 'No'}"
                 )
 
-                col1, col2, col3 = st.columns([1, 1, 2])
+            with meta2:
+                st.markdown("**Unit & Location**")
+                st.markdown(f"- **Count:** {count_str}")
+                st.markdown(
+                    f"- **Unit Category:** {row['UnitCategory'] if pd.notna(row.get('UnitCategory')) else 'Not specified'}"
+                )
+                st.markdown(f"- **Location:** {loc_name}")
+                st.markdown(f"- **Date Counted:** {date_str}")
+                st.markdown(
+                    f"- **Picture Link:** {row['PictureLink'] if pd.notna(row.get('PictureLink')) else 'None'}"
+                )
 
-                with col1:
-                    submitted = st.form_submit_button(
-                        "💾 Add Count", type="primary", use_container_width=True
+            with meta3:
+                st.markdown("**Additional Info**")
+                if pd.notna(row.get("InventoryComments")):
+                    st.markdown("**Comments:**")
+                    st.info(row["InventoryComments"])
+                else:
+                    st.markdown("*No comments*")
+
+                if pd.notna(row.get("LabelDescription")):
+                    st.markdown("**Label Description:**")
+                    st.info(row["LabelDescription"])
+
+            # ---- Inline edit form (always visible inside expander) ----
+            st.markdown("---")
+            st.markdown("#### ✏️ Quick Edit")
+
+            inv_id = int(row["InventoryID"])
+
+            with st.form(f"edit_form_{inv_id}"):
+                edit_col1, edit_col2, edit_col3 = st.columns(3)
+
+                with edit_col1:
+                    edit_count = st.number_input(
+                        "Number of Units",
+                        value=safe_float(row.get("NumberOfUnits")),
+                        step=1.0,
+                        key=f"edit_count_{inv_id}",
+                    )
+                    edit_date = st.date_input(
+                        "Date Counted",
+                        value=(
+                            pd.to_datetime(row["DateCounted"]).date()
+                            if pd.notna(row["DateCounted"])
+                            else datetime.now().date()
+                        ),
+                        key=f"edit_date_{inv_id}",
                     )
 
-                with col2:
-                    cancelled = st.form_submit_button(
-                        "Cancel", use_container_width=True
+                with edit_col2:
+                    # Location dropdown using FK decode map
+                    current_loc_name = (
+                        _LOC_ID_TO_NAME.get(row.get("LocationID"), "")
+                        if pd.notna(row.get("LocationID"))
+                        else ""
                     )
 
-                if submitted:
-                    if selected_item_id and selected_unit_id and number_of_units:
-                        try:
-                            api.table_add_inventory(
-                                ItemID=selected_item_id,
-                                UnitID=selected_unit_id,
-                                NumberOfUnits=number_of_units,
-                                DateCounted=datetime.combine(
-                                    date_counted, datetime.min.time()
-                                ),
-                                InventoryComments=comments if comments else None,
-                                LocationID=selected_location_id,
-                            )
-                            st.success("✅ Inventory count added successfully!")
-                            st.session_state.show_add_modal = False
-                            refresh_data()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Error adding inventory: {e}")
-                    else:
-                        st.error("❌ Please fill in all required fields")
+                    edit_loc_label = st.selectbox(
+                        "Location",
+                        options=_LOC_DISPLAY_OPTIONS,
+                        index=(
+                            _LOC_DISPLAY_OPTIONS.index(current_loc_name)
+                            if current_loc_name in _LOC_DISPLAY_OPTIONS
+                            else 0
+                        ),
+                        key=f"edit_loc_{inv_id}",
+                    )
 
-                if cancelled:
-                    st.session_state.show_add_modal = False
-                    st.rerun()
+                with edit_col3:
+                    edit_comments = st.text_area(
+                        "Comments",
+                        value=(
+                            row["InventoryComments"]
+                            if pd.notna(row.get("InventoryComments"))
+                            else ""
+                        ),
+                        key=f"edit_comments_{inv_id}",
+                    )
 
-        st.markdown("---")
+                form_col1, form_col2 = st.columns([1, 4])
 
-# ===== DISPLAY INVENTORY CARDS OR TABLE =====
-if view_mode == "Cards":
-    for idx, row in filtered_df.iterrows():
-        is_expanded = st.session_state.expanded_card == row["InventoryID"]
+                with form_col1:
+                    save_btn = st.form_submit_button(
+                        "💾 Save", type="primary", use_container_width=True
+                    )
 
-        with st.container():
-            # Card header
-            col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+                if save_btn:
+                    edit_location_id = (
+                        _LOC_NAME_TO_ID.get(edit_loc_label) if edit_loc_label else None
+                    )
+
+                    updates = {
+                        "NumberOfUnits": str(edit_count),
+                        "DateCounted": datetime.combine(edit_date, datetime.min.time()),
+                        "InventoryComments": edit_comments or None,
+                        "LocationID": edit_location_id,
+                    }
+
+                    try:
+                        api.generic_update(
+                            model_class=Inventory,
+                            id_column="InventoryID",
+                            id_value=inv_id,
+                            updates=updates,
+                            allowed_fields=_EDITABLE_INVENTORY_COLS,
+                        )
+                        st.success("✅ Updated successfully!")
+                        refresh_data()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Update failed: {e}")
+
+            # ---- Delete (inside expander via popover — no rerun for confirm) ----
+            with st.popover("🗑️ Delete Record"):
+                st.warning(
+                    f"Are you sure you want to delete inventory record #{inv_id}?"
+                )
+                if st.button(
+                    "Yes, Delete",
+                    key=f"confirm_delete_{inv_id}",
+                    type="primary",
+                ):
+                    try:
+                        api._delete(Inventory, "InventoryID", inv_id)
+                        st.success("Deleted!")
+                        refresh_data()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error deleting: {e}")
+
+
+# ==================== TAB 2: TABLE VIEW ====================
+with tab_table:
+    st.markdown("### 📊 All Inventory (Table)")
+
+    if filtered_df.empty:
+        st.info("No records match current filters.")
+    else:
+        available_cols = [c for c in _TABLE_DISPLAY_COLS if c in filtered_df.columns]
+        display_df = filtered_df[available_cols].copy()
+
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config=_COLUMN_CONFIG,
+        )
+
+
+# ==================== TAB 3: ADD INVENTORY COUNT ====================
+with tab_create:
+    st.markdown("### ➕ Add New Inventory Count")
+
+    # Lookup data for dropdowns (Tier-1 cached, no DB hit on rerun)
+    items_df = api.item_cache
+    units_df = api.unit_cache
+
+    if items_df is None or items_df.empty or units_df is None or units_df.empty:
+        st.warning("⚠️ Item or Unit data not loaded. Please refresh data.")
+    else:
+        with st.form("add_inventory_form", clear_on_submit=True):
+            col1, col2 = st.columns(2)
 
             with col1:
-                item_display = row["Item"] if pd.notna(row["Item"]) else "Unknown"
-                if pd.notna(row.get("Variety")):
-                    item_display += f" - {row['Variety']}"
-                if pd.notna(row.get("Color")):
-                    item_display += f" ({row['Color']})"
+                # Item selection — build label->ID map
+                item_map = {}
+                for _, r in items_df.iterrows():
+                    name = r.get("Item")
+                    if pd.isna(name) or not name:
+                        continue
+                    label = str(name)
+                    if pd.notna(r.get("Variety")) and r["Variety"]:
+                        label += f" - {r['Variety']}"
+                    if pd.notna(r.get("Color")) and r["Color"]:
+                        label += f" ({r['Color']})"
+                    item_map[label] = r["ItemID"]
 
-                st.markdown(f"### {item_display}")
+                selected_item_label = st.selectbox(
+                    "Select Item *",
+                    options=[""] + sorted(item_map.keys()),
+                    key="form_item",
+                )
+
+                # Unit selection — build label->ID map
+                unit_map = {}
+                for _, r in units_df.iterrows():
+                    label = str(r["UnitType"])
+                    if pd.notna(r.get("UnitSize")) and r["UnitSize"]:
+                        label += f" - {r['UnitSize']}"
+                    unit_map[label] = r["UnitID"]
+
+                selected_unit_label = st.selectbox(
+                    "Select Unit *",
+                    options=[""] + sorted(unit_map.keys()),
+                    key="form_unit",
+                )
 
             with col2:
-                unit_label = row["UnitType"] if pd.notna(row.get("UnitType")) else ""
-                st.markdown(
-                    f'<div class="count-badge">{row["NumberOfUnits"]} {unit_label}</div>',
-                    unsafe_allow_html=True,
+                number_of_units = st.number_input(
+                    "Number of Units *", min_value=0.0, step=1.0, key="form_count"
                 )
 
-            with col3:
-                loc_name = (
-                    row["Location"]
-                    if "Location" in row and pd.notna(row.get("Location"))
-                    else "Unassigned"
-                )
-                st.markdown(
-                    f'<div class="location-badge">📍 {loc_name}</div>',
-                    unsafe_allow_html=True,
+                date_counted = st.date_input(
+                    "Date Counted", value=datetime.now().date(), key="form_date"
                 )
 
-            with col4:
-                if st.button(
-                    "👁️ Details" if not is_expanded else "➖ Collapse",
-                    key=f"expand_{row['InventoryID']}",
-                ):
-                    toggle_card_expansion(row["InventoryID"])
-                    st.rerun()
-
-            # Card info row
-            info1, info2, info3, info4 = st.columns(4)
-
-            with info1:
-                st.markdown(
-                    f"**Type:** {row['Type'] if pd.notna(row.get('Type')) else 'N/A'}"
+                selected_loc_label = st.selectbox(
+                    "Location",
+                    options=_LOC_DISPLAY_OPTIONS,
+                    key="form_location",
                 )
 
-            with info2:
-                st.markdown(f"**Counted:** {format_date(row['DateCounted'])}")
+            comments = st.text_area(
+                "Comments (Optional)", key="form_comments", height=100
+            )
 
-            with info3:
-                unit_size = row["UnitSize"] if pd.notna(row.get("UnitSize")) else ""
-                st.markdown(f"**Unit:** {unit_label} - {unit_size}")
+            submitted = st.form_submit_button(
+                "💾 Add Count", type="primary", use_container_width=True
+            )
 
-            with info4:
-                status_class = (
-                    "badge-inactive" if row.get("Inactive") else "badge-active"
-                )
-                status_text = "Inactive" if row.get("Inactive") else "Active"
-                st.markdown(
-                    f'<span class="status-badge {status_class}">{status_text}</span>',
-                    unsafe_allow_html=True,
-                )
+            if submitted:
+                errors = []
+                if not selected_item_label:
+                    errors.append("Item is required.")
+                if not selected_unit_label:
+                    errors.append("Unit is required.")
+                if not number_of_units:
+                    errors.append("Number of units is required.")
 
-            # Expandable details
-            if is_expanded:
-                st.markdown("---")
-
-                # Edit mode
-                if st.session_state.edit_mode.get(row["InventoryID"], False):
-                    st.markdown("#### ✏️ Edit Inventory Record")
-
-                    with st.form(f"edit_form_{row['InventoryID']}"):
-                        edit_col1, edit_col2, edit_col3 = st.columns(3)
-
-                        with edit_col1:
-                            edit_count = st.number_input(
-                                "Number of Units",
-                                value=(
-                                    float(row["NumberOfUnits"])
-                                    if row["NumberOfUnits"]
-                                    else 0.0
-                                ),
-                                step=1.0,
-                                key=f"edit_count_{row['InventoryID']}",
-                            )
-                            edit_date = st.date_input(
-                                "Date Counted",
-                                value=(
-                                    pd.to_datetime(row["DateCounted"]).date()
-                                    if pd.notna(row["DateCounted"])
-                                    else datetime.now().date()
-                                ),
-                                key=f"edit_date_{row['InventoryID']}",
-                            )
-
-                        with edit_col2:
-                            loc_df = api.location_cache
-                            if loc_df is not None and not loc_df.empty:
-                                edit_loc_options = ["None"] + loc_df[
-                                    "Location"
-                                ].tolist()
-                                edit_loc_ids = [None] + loc_df["LocationID"].tolist()
-
-                                current_loc_label = "None"
-                                if "LocationID" in row and pd.notna(
-                                    row.get("LocationID")
-                                ):
-                                    try:
-                                        loc_idx = edit_loc_ids.index(
-                                            int(row["LocationID"])
-                                        )
-                                        current_loc_label = edit_loc_options[loc_idx]
-                                    except (ValueError, TypeError):
-                                        current_loc_label = "None"
-
-                                edit_loc_label = st.selectbox(
-                                    "Location",
-                                    options=edit_loc_options,
-                                    index=edit_loc_options.index(current_loc_label),
-                                    key=f"edit_loc_{row['InventoryID']}",
-                                )
-                                edit_location_id = edit_loc_ids[
-                                    edit_loc_options.index(edit_loc_label)
-                                ]
-                            else:
-                                edit_location_id = None
-
-                        with edit_col3:
-                            edit_comments = st.text_area(
-                                "Comments",
-                                value=(
-                                    row["InventoryComments"]
-                                    if pd.notna(row.get("InventoryComments"))
-                                    else ""
-                                ),
-                                key=f"edit_comments_{row['InventoryID']}",
-                            )
-
-                        save_col1, save_col2, save_col3 = st.columns([1, 1, 3])
-
-                        with save_col1:
-                            save_btn = st.form_submit_button(
-                                "💾 Save", type="primary", use_container_width=True
-                            )
-
-                        with save_col2:
-                            cancel_btn = st.form_submit_button(
-                                "Cancel", use_container_width=True
-                            )
-
-                        if save_btn:
-                            updates = {
-                                "NumberOfUnits": str(edit_count),
-                                "DateCounted": datetime.combine(
-                                    edit_date, datetime.min.time()
-                                ),
-                                "InventoryComments": edit_comments or None,
-                                "LocationID": edit_location_id,
-                            }
-
-                            allowed_fields = {
-                                "ItemID",
-                                "UnitID",
-                                "NumberOfUnits",
-                                "DateCounted",
-                                "InventoryComments",
-                                "LocationID",
-                            }
-
-                            result = api.generic_update(
-                                model_class=Inventory,
-                                id_column="InventoryID",
-                                id_value=row["InventoryID"],
-                                updates=updates,
-                                allowed_fields=allowed_fields,
-                            )
-
-                            if result:
-                                st.success("✅ Updated successfully!")
-                                st.session_state.edit_mode[row["InventoryID"]] = False
-                                refresh_data()
-                                st.rerun()
-                            else:
-                                st.error("❌ Update failed")
-
-                        if cancel_btn:
-                            st.session_state.edit_mode[row["InventoryID"]] = False
-                            st.rerun()
-
+                if errors:
+                    for err in errors:
+                        st.error(err)
                 else:
-                    # Read-only expanded details
-                    st.markdown("#### 📋 Detailed Information")
+                    selected_item_id = item_map[selected_item_label]
+                    selected_unit_id = unit_map[selected_unit_label]
+                    selected_location_id = (
+                        _LOC_NAME_TO_ID.get(selected_loc_label)
+                        if selected_loc_label
+                        else None
+                    )
 
-                    detail_col1, detail_col2, detail_col3 = st.columns(3)
-
-                    with detail_col1:
-                        st.markdown("**Item Details**")
-                        st.markdown(f"- **Item ID:** {row['ItemID']}")
-                        st.markdown(f"- **Inventory ID:** {row['InventoryID']}")
-                        st.markdown(
-                            f"- **Sun Conditions:** {row['SunConditions'] if pd.notna(row.get('SunConditions')) else 'Not specified'}"
+                    try:
+                        api.table_add_inventory(
+                            ItemID=selected_item_id,
+                            UnitID=selected_unit_id,
+                            NumberOfUnits=number_of_units,
+                            DateCounted=datetime.combine(
+                                date_counted, datetime.min.time()
+                            ),
+                            InventoryComments=comments if comments else None,
+                            LocationID=selected_location_id,
                         )
-                        st.markdown(
-                            f"- **Should Stock:** {'Yes' if row.get('ShouldStock') else 'No'}"
-                        )
+                        st.success("✅ Inventory count added successfully!")
+                        refresh_data()
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Error adding inventory: {e}")
 
-                    with detail_col2:
-                        st.markdown("**Unit & Location**")
-                        st.markdown(f"- **Unit ID:** {row['UnitID']}")
-                        st.markdown(
-                            f"- **Unit Category:** {row['UnitCategory'] if pd.notna(row.get('UnitCategory')) else 'Not specified'}"
-                        )
-                        loc_display = (
-                            row["Location"]
-                            if "Location" in row and pd.notna(row.get("Location"))
-                            else "Unassigned"
-                        )
-                        st.markdown(f"- **Location:** {loc_display}")
-                        st.markdown(
-                            f"- **Picture Link:** {row['PictureLink'] if pd.notna(row.get('PictureLink')) else 'None'}"
-                        )
-
-                    with detail_col3:
-                        st.markdown("**Additional Info**")
-                        if pd.notna(row.get("InventoryComments")):
-                            st.markdown("**Comments:**")
-                            st.info(row["InventoryComments"])
-                        else:
-                            st.markdown("*No comments*")
-
-                        if pd.notna(row.get("LabelDescription")):
-                            st.markdown("**Label Description:**")
-                            st.info(row["LabelDescription"])
-
-                    # Action buttons
-                    st.markdown("---")
-                    action_col1, action_col2, action_col3 = st.columns([1, 1, 3])
-
-                    with action_col1:
-                        if st.button(
-                            "✏️ Edit",
-                            key=f"edit_{row['InventoryID']}",
-                            use_container_width=True,
-                        ):
-                            st.session_state.edit_mode[row["InventoryID"]] = True
-                            st.rerun()
-
-                    with action_col2:
-                        if st.button(
-                            "🗑️ Delete",
-                            key=f"delete_{row['InventoryID']}",
-                            use_container_width=True,
-                            type="secondary",
-                        ):
-                            st.session_state[f"confirm_delete_{row['InventoryID']}"] = (
-                                True
-                            )
-                            st.rerun()
-
-                    # Delete confirmation
-                    if st.session_state.get(
-                        f"confirm_delete_{row['InventoryID']}", False
-                    ):
-                        st.warning(
-                            f"⚠️ Are you sure you want to delete inventory record #{row['InventoryID']}?"
-                        )
-                        confirm_col1, confirm_col2, confirm_col3 = st.columns([1, 1, 3])
-                        with confirm_col1:
-                            if st.button(
-                                "Yes, Delete",
-                                key=f"confirm_yes_{row['InventoryID']}",
-                                type="primary",
-                                use_container_width=True,
-                            ):
-                                try:
-                                    api._delete(
-                                        Inventory, "InventoryID", row["InventoryID"]
-                                    )
-                                    st.success("✅ Deleted successfully!")
-                                    st.session_state.pop(
-                                        f"confirm_delete_{row['InventoryID']}", None
-                                    )
-                                    refresh_data()
-                                    st.rerun()
-                                except Exception as e:
-                                    st.error(f"❌ Error deleting: {e}")
-                        with confirm_col2:
-                            if st.button(
-                                "Cancel",
-                                key=f"confirm_no_{row['InventoryID']}",
-                                use_container_width=True,
-                            ):
-                                st.session_state.pop(
-                                    f"confirm_delete_{row['InventoryID']}", None
-                                )
-                                st.rerun()
-
-            st.markdown("---")
-
-else:
-    # Table view
-    display_columns = [
-        "InventoryID",
-        "Item",
-        "Variety",
-        "Color",
-        "Type",
-        "NumberOfUnits",
-        "UnitType",
-        "DateCounted",
-    ]
-
-    # Add Location column if available from the view
-    if "Location" in filtered_df.columns:
-        display_columns.append("Location")
-
-    display_columns += ["Inactive", "ShouldStock"]
-
-    display_df = filtered_df[
-        [c for c in display_columns if c in filtered_df.columns]
-    ].copy()
-
-    column_config = {
-        "InventoryID": st.column_config.NumberColumn("ID", width="small"),
-        "Item": st.column_config.TextColumn("Item", width="medium"),
-        "Variety": st.column_config.TextColumn("Variety", width="small"),
-        "Color": st.column_config.TextColumn("Color", width="small"),
-        "Type": st.column_config.TextColumn("Type", width="small"),
-        "NumberOfUnits": st.column_config.TextColumn("Count", width="small"),
-        "UnitType": st.column_config.TextColumn("Unit", width="small"),
-        "DateCounted": st.column_config.DatetimeColumn(
-            "Date Counted", format="MMM DD, YYYY"
-        ),
-        "Location": st.column_config.TextColumn("Location", width="small"),
-        "Inactive": st.column_config.CheckboxColumn("Inactive", width="small"),
-        "ShouldStock": st.column_config.CheckboxColumn("Stock?", width="small"),
-    }
-
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config=column_config,
-    )
 
 # ===== FOOTER =====
 st.markdown("---")
@@ -853,11 +747,13 @@ col1, col2 = st.columns([3, 1])
 with col1:
     if total_filtered > st.session_state.results_limit:
         st.caption(
-            f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Displaying {len(filtered_df)} of {total_filtered} matching records (limited for performance)"
+            f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
+            f"Displaying {len(filtered_df)} of {total_filtered} matching records"
         )
     else:
         st.caption(
-            f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Displaying {len(filtered_df)} records"
+            f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
+            f"Displaying {len(filtered_df)} records"
         )
 
 with col2:

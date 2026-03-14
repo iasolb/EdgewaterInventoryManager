@@ -4,6 +4,8 @@ Manage orders with summary, detail, receiving, and calendar views
 Author: Ian Solberg
 Date: 10-16-2025
 Updated: 3-3-2026 - Full build with multi-view layout, receiving workflow
+Optimized: st.expander replaces button+rerun, pre-indexed lookups,
+           cached summary, create order form
 """
 
 # ====== IMPORTS ======
@@ -116,8 +118,6 @@ st.markdown(
 )
 
 # ===== SESSION STATE =====
-if "expanded_order" not in st.session_state:
-    st.session_state.expanded_order = None
 if "filter_search" not in st.session_state:
     st.session_state.filter_search = ""
 if "filter_suppliers" not in st.session_state:
@@ -129,16 +129,18 @@ if "filter_season" not in st.session_state:
 if "results_limit" not in st.session_state:
     st.session_state.results_limit = 25
 
-# ===== CACHE DATA =====
-# Lookup tables auto-cached via @st.cache_data
-# View data loaded lazily into session_state
+
+# ===== HELPERS =====
 
 
 def refresh_data():
+    """Refresh view cache and invalidate derived structures."""
     with st.spinner("Refreshing data..."):
         api.refresh_view_cache("orders")
         api.clear_lookup_caches()
-    st.success("✅ Data refreshed!", icon="✅")
+        for key in ("_order_summary", "_order_items_by_id"):
+            st.session_state.pop(key, None)
+    st.success("Data refreshed!", icon="✅")
 
 
 def format_date(date_value):
@@ -147,13 +149,13 @@ def format_date(date_value):
     if isinstance(date_value, str):
         try:
             date_value = pd.to_datetime(date_value)
-        except:
+        except Exception:
             return date_value
     return date_value.strftime("%b %d, %Y")
 
 
 def get_order_status(row):
-    """Determine order status from dates"""
+    """Determine order status from dates."""
     if pd.notna(row.get("DateReceived")):
         return "received"
     if pd.notna(row.get("DateDue")):
@@ -161,7 +163,7 @@ def get_order_status(row):
             due = pd.to_datetime(row["DateDue"])
             if due < pd.Timestamp.now():
                 return "overdue"
-        except:
+        except Exception:
             pass
     return "pending"
 
@@ -171,45 +173,231 @@ def format_currency(val):
         return "N/A"
     try:
         return f"${float(val):,.2f}"
-    except:
+    except Exception:
         return str(val)
 
 
-# ===== BUILD SUMMARY DATA =====
-order_df = (
-    api.order_view_cache.copy() if api.order_view_cache is not None else pd.DataFrame()
-)
+_STATUS_HTML = {
+    "received": '<span class="status-received">✅ Received</span>',
+    "overdue": '<span class="status-overdue">⚠️ Overdue</span>',
+    "pending": '<span class="status-pending">⏳ Pending</span>',
+}
 
-if order_df.empty:
+# Shared column config — built once, reused across tabs
+_ITEM_COLUMN_CONFIG = {
+    "OrderItemID": st.column_config.NumberColumn("ID", width="small"),
+    "OrderID": st.column_config.NumberColumn("Order", width="small"),
+    "Supplier": st.column_config.TextColumn("Supplier", width="medium"),
+    "Item": st.column_config.TextColumn("Item", width="medium"),
+    "Variety": st.column_config.TextColumn("Variety", width="small"),
+    "Color": st.column_config.TextColumn("Color", width="small"),
+    "ItemCode": st.column_config.TextColumn("Code", width="small"),
+    "NumberOfUnits": st.column_config.TextColumn("Qty", width="small"),
+    "Unit": st.column_config.TextColumn("Unit", width="small"),
+    "UnitPrice": st.column_config.NumberColumn("Price", format="$%.2f", width="small"),
+    "Received": st.column_config.CheckboxColumn("Rcvd", width="small"),
+    "OrderItemType": st.column_config.TextColumn("Type", width="small"),
+    "OrderItemTypeID": st.column_config.TextColumn("Type", width="small"),
+    "DateDue": st.column_config.DatetimeColumn(
+        "Due", format="MMM DD, YYYY", width="small"
+    ),
+    "DateReceived": st.column_config.DatetimeColumn(
+        "Received", format="MMM DD, YYYY", width="small"
+    ),
+    "OrderNoteDecode": st.column_config.TextColumn("Note", width="medium"),
+    "OrderNote": st.column_config.TextColumn("Note", width="medium"),
+    "OrderItemComments": st.column_config.TextColumn("Comments", width="medium"),
+    "Leftover": st.column_config.TextColumn("Leftover", width="small"),
+    "ToOrder": st.column_config.TextColumn("To Order", width="small"),
+    "LocationName": st.column_config.TextColumn("Destination", width="small"),
+}
+
+# Columns to display for item tables
+_ITEM_DISPLAY_COLS_DETAIL = [
+    "OrderItemID",
+    "Item",
+    "Variety",
+    "Color",
+    "ItemCode",
+    "NumberOfUnits",
+    "Unit",
+    "UnitPrice",
+    "Received",
+    "OrderItemTypeID",
+    "OrderNote",
+    "OrderItemComments",
+    "Leftover",
+    "ToOrder",
+    "LocationName",
+]
+
+_ITEM_DISPLAY_COLS_ALL = [
+    "OrderItemID",
+    "OrderID",
+    "Supplier",
+] + _ITEM_DISPLAY_COLS_DETAIL[
+    1:
+]  # skip duplicate OrderItemID
+
+# Columns that map to the OrderItem base table and can be edited inline
+_EDITABLE_ORDER_ITEM_COLS = {
+    "Received",
+    "OrderItemComments",
+    "Leftover",
+    "ToOrder",
+    "UnitPrice",
+    "NumberOfUnits",
+    "Unit",
+    "ItemCode",
+    "OrderNote",
+    "OrderItemTypeID",
+}
+
+# Display names for item table columns
+_COL_LABELS = {
+    "OrderItemID": "ID",
+    "Item": "Item",
+    "Variety": "Variety",
+    "Color": "Color",
+    "ItemCode": "Code",
+    "NumberOfUnits": "Qty",
+    "Unit": "Unit",
+    "UnitPrice": "Price",
+    "Received": "Rcvd",
+    "OrderItemTypeID": "Type",
+    "OrderNote": "Note",
+    "OrderItemType": "Type",
+    "OrderNoteDecode": "Note",
+    "OrderItemComments": "Comments",
+    "Leftover": "Leftover",
+    "ToOrder": "To Order",
+    "LocationName": "Destination",
+}
+
+
+# ================================================================
+# DATA LOADING — single read, derived structures cached in session_state
+# ================================================================
+
+_raw_cache = api.order_view_cache
+
+if _raw_cache is None or _raw_cache.empty:
     st.markdown("# 📦 Order Tracking")
     st.info("No order data available. Check your database connection.")
     if st.button("← Back to Home"):
         st.switch_page("edgewater.py")
     st.stop()
 
-# Build order-level summary
-summary = (
-    order_df.groupby("OrderID")
-    .agg(
-        {
-            "Supplier": "first",
-            "Broker": "first",
-            "Shipper": "first",
-            "DatePlaced": "first",
-            "DateDue": "first",
-            "DateReceived": "first",
-            "OrderNumber": "first",
-            "TrackingNumber": "first",
-            "TotalCost": "first",
-            "GrowingSeason": "first",
-            "OrderComments": "first",
-            "OrderItemID": "count",
-        }
+order_df = _raw_cache
+
+
+def _build_summary(df: pd.DataFrame) -> pd.DataFrame:
+    """Build order-level summary. Cached in session_state."""
+    s = (
+        df.groupby("OrderID")
+        .agg(
+            {
+                "Supplier": "first",
+                "Broker": "first",
+                "Shipper": "first",
+                "DatePlaced": "first",
+                "DateDue": "first",
+                "DateReceived": "first",
+                "OrderNumber": "first",
+                "TrackingNumber": "first",
+                "TotalCost": "first",
+                "GrowingSeason": "first",
+                "OrderComments": "first",
+                "OrderItemID": "count",
+            }
+        )
+        .reset_index()
+        .rename(columns={"OrderItemID": "ItemCount"})
     )
-    .reset_index()
-    .rename(columns={"OrderItemID": "ItemCount"})
+    return s.sort_values("DatePlaced", ascending=False)
+
+
+def _build_order_index(df: pd.DataFrame) -> dict:
+    """Pre-build {OrderID: DataFrame} for O(1) per-order lookups."""
+    return {oid: group for oid, group in df.groupby("OrderID")}
+
+
+if "_order_summary" not in st.session_state:
+    st.session_state["_order_summary"] = _build_summary(order_df)
+summary = st.session_state["_order_summary"]
+
+if "_order_items_by_id" not in st.session_state:
+    st.session_state["_order_items_by_id"] = _build_order_index(order_df)
+order_items_by_id = st.session_state["_order_items_by_id"]
+
+
+def get_order_items(order_id: int) -> pd.DataFrame:
+    """O(1) lookup for items belonging to a specific order."""
+    return order_items_by_id.get(order_id, pd.DataFrame())
+
+
+# ================================================================
+# FK decode maps for dropdown columns in data_editor
+# These use Tier-1 cached lookups (no DB hit on rerun)
+# ================================================================
+
+_order_note_df = api.order_note_cache
+_order_item_type_df = api.order_item_type_cache
+
+# ID -> display name (for rendering)
+_NOTE_ID_TO_NAME = (
+    dict(zip(_order_note_df["OrderNoteID"], _order_note_df["OrderNote"]))
+    if not _order_note_df.empty
+    else {}
 )
-summary = summary.sort_values("DatePlaced", ascending=False)
+_OIT_ID_TO_NAME = (
+    dict(
+        zip(
+            _order_item_type_df["OrderItemTypeID"],
+            _order_item_type_df["OrderItemType"],
+        )
+    )
+    if not _order_item_type_df.empty
+    else {}
+)
+
+# Display name -> ID (for saving edits back to DB)
+_NOTE_NAME_TO_ID = {v: k for k, v in _NOTE_ID_TO_NAME.items()}
+_OIT_NAME_TO_ID = {v: k for k, v in _OIT_ID_TO_NAME.items()}
+
+# Options for SelectboxColumn (display names, with empty option)
+_NOTE_DISPLAY_OPTIONS = [""] + sorted(_NOTE_ID_TO_NAME.values())
+_OIT_DISPLAY_OPTIONS = [""] + sorted(_OIT_ID_TO_NAME.values())
+
+
+def _display_items_dataframe(items_df: pd.DataFrame, cols: list, max_rows: int = 0):
+    """Render an items dataframe with shared column config. Decodes FK IDs to names."""
+    available = [c for c in cols if c in items_df.columns]
+    display = items_df[available].copy()
+
+    # Decode FK IDs to human-readable names
+    if "OrderNote" in display.columns and _NOTE_ID_TO_NAME:
+        display["OrderNote"] = display["OrderNote"].map(_NOTE_ID_TO_NAME).fillna("")
+    if "OrderItemTypeID" in display.columns and _OIT_ID_TO_NAME:
+        display["OrderItemTypeID"] = (
+            display["OrderItemTypeID"].map(_OIT_ID_TO_NAME).fillna("")
+        )
+
+    if max_rows and len(display) > max_rows:
+        st.dataframe(
+            display.head(max_rows),
+            use_container_width=True,
+            hide_index=True,
+            column_config=_ITEM_COLUMN_CONFIG,
+        )
+        st.caption(f"Showing first {max_rows} of {len(display)} items")
+    else:
+        st.dataframe(
+            display,
+            use_container_width=True,
+            hide_index=True,
+            column_config=_ITEM_COLUMN_CONFIG,
+        )
 
 
 # ===== SIDEBAR =====
@@ -229,7 +417,6 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### 🔍 Filters")
 
-    # Search
     search_term = st.text_input(
         "Search orders",
         value=st.session_state.filter_search,
@@ -240,7 +427,6 @@ with st.sidebar:
         st.session_state.filter_search = search_term
         st.rerun()
 
-    # Supplier filter
     supplier_list = sorted(summary["Supplier"].dropna().unique().tolist())
     selected_suppliers = st.multiselect(
         "Supplier",
@@ -252,7 +438,6 @@ with st.sidebar:
         st.session_state.filter_suppliers = selected_suppliers
         st.rerun()
 
-    # Status filter
     status_options = ["All", "Pending", "Received", "Overdue"]
     selected_status = st.selectbox(
         "Status",
@@ -264,7 +449,6 @@ with st.sidebar:
         st.session_state.filter_status = selected_status
         st.rerun()
 
-    # Season filter
     seasons = ["All"] + sorted(
         summary["GrowingSeason"].dropna().unique().tolist(), reverse=True
     )
@@ -282,7 +466,6 @@ with st.sidebar:
         st.session_state.filter_season = selected_season
         st.rerun()
 
-    # Date range
     st.markdown("**Date Range (Placed)**")
     date_start = st.date_input("From", value=None, key="date_start")
     date_end = st.date_input("To", value=None, key="date_end")
@@ -312,15 +495,14 @@ with st.sidebar:
 st.markdown("# 📦 Order Tracking")
 st.markdown("---")
 
-# ===== MAIN TABS =====
-tab_summary, tab_timeline, tab_items, tab_receiving = st.tabs(
-    ["📋 Order Summary", "📅 Timeline", "📦 All Items", "✅ Receiving"]
+# ===== TABS =====
+tab_summary, tab_timeline, tab_items, tab_receiving, tab_create = st.tabs(
+    ["📋 Order Summary", "📅 Timeline", "📦 All Items", "✅ Receiving", "➕ New Order"]
 )
 
-# ===== APPLY FILTERS TO SUMMARY =====
-filtered_summary = summary.copy()
+# ===== APPLY FILTERS =====
+filtered_summary = summary
 
-# Search
 if st.session_state.filter_search:
     search_lower = st.session_state.filter_search.lower()
     mask = (
@@ -334,13 +516,11 @@ if st.session_state.filter_search:
     )
     filtered_summary = filtered_summary[mask]
 
-# Supplier
 if st.session_state.filter_suppliers:
     filtered_summary = filtered_summary[
         filtered_summary["Supplier"].isin(st.session_state.filter_suppliers)
     ]
 
-# Status
 if st.session_state.filter_status == "Pending":
     filtered_summary = filtered_summary[filtered_summary["DateReceived"].isna()]
 elif st.session_state.filter_status == "Received":
@@ -351,13 +531,11 @@ elif st.session_state.filter_status == "Overdue":
         (filtered_summary["DateReceived"].isna()) & (filtered_summary["DateDue"] < now)
     ]
 
-# Season
 if st.session_state.filter_season != "All":
     filtered_summary = filtered_summary[
         filtered_summary["GrowingSeason"] == st.session_state.filter_season
     ]
 
-# Date range
 if date_start:
     filtered_summary = filtered_summary[
         filtered_summary["DatePlaced"] >= pd.to_datetime(date_start)
@@ -367,196 +545,252 @@ if date_end:
         filtered_summary["DatePlaced"] <= pd.to_datetime(date_end)
     ]
 
-filtered_order_ids = filtered_summary["OrderID"].tolist()
+filtered_order_ids = set(filtered_summary["OrderID"].tolist())
+
 
 # ==================== TAB 1: ORDER SUMMARY ====================
+# Uses st.expander — expanding/collapsing does NOT trigger st.rerun().
+# This is the main fix for the slow card-expand experience.
+
 with tab_summary:
     st.markdown(f"### {len(filtered_summary)} Orders")
 
     for idx, row in filtered_summary.head(st.session_state.results_limit).iterrows():
         status = get_order_status(row)
-        is_expanded = st.session_state.expanded_order == row["OrderID"]
 
-        with st.container():
-            # Order header row
-            h1, h2, h3, h4, h5 = st.columns([2, 2, 1, 1, 1])
+        supplier_name = row["Supplier"] if pd.notna(row["Supplier"]) else "Unknown"
+        order_num = row["OrderNumber"] if pd.notna(row["OrderNumber"]) else "N/A"
+        cost_str = format_currency(row["TotalCost"])
+        item_count = int(row["ItemCount"])
+        status_icon = {"received": "✅", "overdue": "⚠️", "pending": "⏳"}[status]
 
-            with h1:
-                supplier_name = (
-                    row["Supplier"] if pd.notna(row["Supplier"]) else "Unknown"
-                )
-                order_num = row["OrderNumber"] if pd.notna(row["OrderNumber"]) else ""
-                st.markdown(f"**{supplier_name}**")
-                if order_num:
-                    st.caption(f"Order #{order_num}")
+        expander_label = (
+            f"{status_icon}  **{supplier_name}** — #{order_num} — "
+            f"{format_date(row['DatePlaced'])} — {item_count} items — {cost_str}"
+        )
 
-            with h2:
-                st.markdown(f"**Placed:** {format_date(row['DatePlaced'])}")
-                st.markdown(f"**Due:** {format_date(row['DateDue'])}")
+        with st.expander(expander_label, expanded=False):
+            st.markdown(_STATUS_HTML[status], unsafe_allow_html=True)
 
-            with h3:
+            meta1, meta2, meta3 = st.columns(3)
+
+            with meta1:
+                st.markdown("**Order Details**")
+                st.markdown(f"- **Order ID:** {row['OrderID']}")
+                st.markdown(f"- **Total Cost:** {cost_str}")
                 st.markdown(
-                    f'<div class="count-badge">{int(row["ItemCount"])} items</div>',
-                    unsafe_allow_html=True,
+                    f"- **Growing Season:** {row['GrowingSeason'] if pd.notna(row['GrowingSeason']) else 'N/A'}"
+                )
+                if pd.notna(row.get("TrackingNumber")):
+                    st.markdown(f"- **Tracking:** {row['TrackingNumber']}")
+
+            with meta2:
+                st.markdown("**Supplier & Broker**")
+                st.markdown(
+                    f"- **Supplier:** {row['Supplier'] if pd.notna(row['Supplier']) else 'N/A'}"
+                )
+                st.markdown(
+                    f"- **Broker:** {row['Broker'] if pd.notna(row['Broker']) else 'N/A'}"
+                )
+                st.markdown(
+                    f"- **Shipper:** {row['Shipper'] if pd.notna(row['Shipper']) else 'N/A'}"
                 )
 
-            with h4:
-                if status == "received":
-                    st.markdown(
-                        '<div class="status-received">✅ Received</div>',
-                        unsafe_allow_html=True,
-                    )
-                elif status == "overdue":
-                    st.markdown(
-                        '<div class="status-overdue">⚠️ Overdue</div>',
-                        unsafe_allow_html=True,
-                    )
+            with meta3:
+                st.markdown("**Dates**")
+                st.markdown(f"- **Placed:** {format_date(row['DatePlaced'])}")
+                st.markdown(f"- **Due:** {format_date(row['DateDue'])}")
+                st.markdown(f"- **Received:** {format_date(row['DateReceived'])}")
+
+                order_id_int = int(row["OrderID"])
+                if pd.notna(row["DateReceived"]):
+                    # Order is marked received — allow undoing
+                    if st.button(
+                        "↩️ Mark Unreceived",
+                        key=f"unreceive_order_{order_id_int}",
+                    ):
+                        try:
+                            api.generic_update(
+                                model_class=Order,
+                                id_column="OrderID",
+                                id_value=order_id_int,
+                                updates={"DateReceived": None},
+                                allowed_fields={"DateReceived", "OrderComments"},
+                            )
+                            st.success("Order marked as unreceived.")
+                            refresh_data()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ {e}")
                 else:
-                    st.markdown(
-                        '<div class="status-pending">⏳ Pending</div>',
-                        unsafe_allow_html=True,
+                    # Order is pending — allow marking received
+                    if st.button(
+                        "✅ Mark Received",
+                        key=f"receive_order_{order_id_int}",
+                    ):
+                        try:
+                            api.generic_update(
+                                model_class=Order,
+                                id_column="OrderID",
+                                id_value=order_id_int,
+                                updates={"DateReceived": datetime.now()},
+                                allowed_fields={"DateReceived", "OrderComments"},
+                            )
+                            st.success("Order marked as received.")
+                            refresh_data()
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"❌ {e}")
+
+            if pd.notna(row.get("OrderComments")):
+                st.info(f"**Comments:** {row['OrderComments']}")
+
+            st.markdown("#### Items in this Order")
+            oi = get_order_items(row["OrderID"])
+            if not oi.empty:
+                available_cols = [
+                    c for c in _ITEM_DISPLAY_COLS_DETAIL if c in oi.columns
+                ]
+                edit_df = oi[available_cols].copy()
+
+                # Decode FK IDs to display names for the editor
+                if "OrderNote" in edit_df.columns:
+                    edit_df["OrderNote"] = (
+                        edit_df["OrderNote"].map(_NOTE_ID_TO_NAME).fillna("")
+                    )
+                if "OrderItemTypeID" in edit_df.columns:
+                    edit_df["OrderItemTypeID"] = (
+                        edit_df["OrderItemTypeID"].map(_OIT_ID_TO_NAME).fillna("")
                     )
 
-            with h5:
-                if st.button(
-                    "👁️" if not is_expanded else "➖",
-                    key=f"expand_order_{row['OrderID']}",
-                ):
-                    if is_expanded:
-                        st.session_state.expanded_order = None
+                # Build column config
+                edit_column_config = {}
+                for col in available_cols:
+                    label = _COL_LABELS.get(col, col)
+                    if col == "OrderItemID":
+                        edit_column_config[col] = st.column_config.NumberColumn(
+                            label,
+                            width="small",
+                            disabled=True,
+                        )
+                    elif col == "UnitPrice":
+                        edit_column_config[col] = st.column_config.NumberColumn(
+                            label,
+                            format="$%.2f",
+                            width="small",
+                        )
+                    elif col == "Received":
+                        edit_column_config[col] = st.column_config.CheckboxColumn(
+                            label,
+                            width="small",
+                        )
+                    elif col == "OrderNote":
+                        edit_column_config[col] = st.column_config.SelectboxColumn(
+                            label,
+                            options=_NOTE_DISPLAY_OPTIONS,
+                            width="small",
+                        )
+                    elif col == "OrderItemTypeID":
+                        edit_column_config[col] = st.column_config.SelectboxColumn(
+                            label,
+                            options=_OIT_DISPLAY_OPTIONS,
+                            width="small",
+                        )
+                    elif col in _EDITABLE_ORDER_ITEM_COLS:
+                        edit_column_config[col] = st.column_config.TextColumn(
+                            label,
+                            width="small",
+                        )
                     else:
-                        st.session_state.expanded_order = row["OrderID"]
-                    st.rerun()
+                        edit_column_config[col] = st.column_config.TextColumn(
+                            label,
+                            width="small",
+                            disabled=True,
+                        )
 
-            # Expanded order details
-            if is_expanded:
-                st.markdown("---")
+                order_id_for_key = int(row["OrderID"])
+                edited = st.data_editor(
+                    edit_df,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config=edit_column_config,
+                    num_rows="fixed",
+                    key=f"editor_{order_id_for_key}",
+                )
 
-                # Order metadata
-                meta1, meta2, meta3 = st.columns(3)
+                # Detect changes and show save button
+                has_changes = not edit_df.reset_index(drop=True).equals(
+                    edited.reset_index(drop=True)
+                )
+                if has_changes:
+                    if st.button(
+                        "💾 Save Changes",
+                        key=f"save_items_{order_id_for_key}",
+                        type="primary",
+                    ):
+                        save_errors = []
+                        save_count = 0
+                        for idx_row in range(len(edited)):
+                            orig_row = edit_df.iloc[idx_row]
+                            edit_row = edited.iloc[idx_row]
+                            item_id = int(orig_row["OrderItemID"])
 
-                with meta1:
-                    st.markdown("**Order Details**")
-                    st.markdown(f"- **Order ID:** {row['OrderID']}")
-                    st.markdown(
-                        f"- **Total Cost:** {format_currency(row['TotalCost'])}"
-                    )
-                    st.markdown(
-                        f"- **Growing Season:** {row['GrowingSeason'] if pd.notna(row['GrowingSeason']) else 'N/A'}"
-                    )
-                    if pd.notna(row.get("TrackingNumber")):
-                        st.markdown(f"- **Tracking:** {row['TrackingNumber']}")
+                            updates = {}
+                            for col in _EDITABLE_ORDER_ITEM_COLS:
+                                if col not in edit_df.columns:
+                                    continue
+                                orig_val = orig_row[col]
+                                new_val = edit_row[col]
+                                if pd.isna(orig_val) and pd.isna(new_val):
+                                    continue
+                                if orig_val != new_val:
+                                    # Translate display names back to FK IDs
+                                    if col == "OrderNote":
+                                        new_val = (
+                                            _NOTE_NAME_TO_ID.get(new_val)
+                                            if new_val
+                                            else None
+                                        )
+                                    elif col == "OrderItemTypeID":
+                                        new_val = (
+                                            _OIT_NAME_TO_ID.get(new_val)
+                                            if new_val
+                                            else None
+                                        )
+                                    updates[col] = new_val
 
-                with meta2:
-                    st.markdown("**Supplier & Broker**")
-                    st.markdown(
-                        f"- **Supplier:** {row['Supplier'] if pd.notna(row['Supplier']) else 'N/A'}"
-                    )
-                    st.markdown(
-                        f"- **Broker:** {row['Broker'] if pd.notna(row['Broker']) else 'N/A'}"
-                    )
-                    st.markdown(
-                        f"- **Shipper:** {row['Shipper'] if pd.notna(row['Shipper']) else 'N/A'}"
-                    )
+                            if updates:
+                                try:
+                                    api.generic_update(
+                                        model_class=OrderItem,
+                                        id_column="OrderItemID",
+                                        id_value=item_id,
+                                        updates=updates,
+                                        allowed_fields=_EDITABLE_ORDER_ITEM_COLS,
+                                    )
+                                    save_count += 1
+                                except Exception as e:
+                                    save_errors.append(f"Item {item_id}: {e}")
 
-                with meta3:
-                    st.markdown("**Dates**")
-                    st.markdown(f"- **Placed:** {format_date(row['DatePlaced'])}")
-                    st.markdown(f"- **Due:** {format_date(row['DateDue'])}")
-                    st.markdown(f"- **Received:** {format_date(row['DateReceived'])}")
-
-                if pd.notna(row.get("OrderComments")):
-                    st.info(f"**Comments:** {row['OrderComments']}")
-
-                # Order items for this order
-                st.markdown("#### Items in this Order")
-                order_items = order_df[order_df["OrderID"] == row["OrderID"]].copy()
-
-                if not order_items.empty:
-                    items_display = order_items[
-                        [
-                            c
-                            for c in [
-                                "OrderItemID",
-                                "Item",
-                                "Variety",
-                                "Color",
-                                "ItemCode",
-                                "NumberOfUnits",
-                                "Unit",
-                                "UnitPrice",
-                                "Received",
-                                "OrderItemType",
-                                "OrderNoteDecode",
-                                "OrderItemComments",
-                                "Leftover",
-                                "ToOrder",
-                                "LocationName",
-                            ]
-                            if c in order_items.columns
-                        ]
-                    ].copy()
-
-                    column_config = {
-                        "OrderItemID": st.column_config.NumberColumn(
-                            "ID", width="small"
-                        ),
-                        "Item": st.column_config.TextColumn("Item", width="medium"),
-                        "Variety": st.column_config.TextColumn(
-                            "Variety", width="small"
-                        ),
-                        "Color": st.column_config.TextColumn("Color", width="small"),
-                        "ItemCode": st.column_config.TextColumn("Code", width="small"),
-                        "NumberOfUnits": st.column_config.TextColumn(
-                            "Qty", width="small"
-                        ),
-                        "Unit": st.column_config.TextColumn("Unit", width="small"),
-                        "UnitPrice": st.column_config.NumberColumn(
-                            "Price", format="$%.2f", width="small"
-                        ),
-                        "Received": st.column_config.CheckboxColumn(
-                            "Rcvd", width="small"
-                        ),
-                        "OrderItemType": st.column_config.TextColumn(
-                            "Type", width="small"
-                        ),
-                        "OrderNoteDecode": st.column_config.TextColumn(
-                            "Note", width="medium"
-                        ),
-                        "OrderItemComments": st.column_config.TextColumn(
-                            "Comments", width="medium"
-                        ),
-                        "Leftover": st.column_config.TextColumn(
-                            "Leftover", width="small"
-                        ),
-                        "ToOrder": st.column_config.TextColumn(
-                            "To Order", width="small"
-                        ),
-                        "LocationName": st.column_config.TextColumn(
-                            "Destination", width="small"
-                        ),
-                    }
-
-                    st.dataframe(
-                        items_display,
-                        use_container_width=True,
-                        hide_index=True,
-                        column_config=column_config,
-                    )
-
-            st.markdown("---")
+                        if save_errors:
+                            for err in save_errors:
+                                st.error(f"❌ {err}")
+                        if save_count:
+                            st.success(f"✅ Updated {save_count} item(s).")
+                            refresh_data()
+                            st.rerun()
+                else:
+                    st.caption("Edit cells above, then save.")
 
 
 # ==================== TAB 2: TIMELINE ====================
 with tab_timeline:
     st.markdown("### 📅 Orders by Due Date")
 
-    timeline_df = filtered_summary.copy()
-
-    if timeline_df.empty:
+    if filtered_summary.empty:
         st.info("No orders match current filters.")
     else:
-        # Group by due date week
+        timeline_df = filtered_summary.copy()
         timeline_df["DueDateParsed"] = pd.to_datetime(
             timeline_df["DateDue"], errors="coerce"
         )
@@ -566,7 +800,6 @@ with tab_timeline:
         if timeline_df.empty:
             st.info("No orders with valid due dates.")
         else:
-            # Show overdue first
             now = pd.Timestamp.now()
             overdue = timeline_df[
                 (timeline_df["DueDateParsed"] < now)
@@ -584,17 +817,16 @@ with tab_timeline:
                     )
                 st.markdown("---")
 
-            # Upcoming orders grouped by week
             upcoming = timeline_df[
                 (timeline_df["DueDateParsed"] >= now)
                 | (timeline_df["DateReceived"].notna())
             ]
 
             if not upcoming.empty:
+                upcoming = upcoming.copy()
                 upcoming["Week"] = upcoming["DueDateParsed"].dt.to_period("W")
-                weeks = upcoming["Week"].unique()
 
-                for week in sorted(weeks):
+                for week in sorted(upcoming["Week"].unique()):
                     week_orders = upcoming[upcoming["Week"] == week]
                     week_start = week.start_time.strftime("%b %d")
                     week_end = week.end_time.strftime("%b %d, %Y")
@@ -602,15 +834,14 @@ with tab_timeline:
                     st.markdown(f"#### Week of {week_start} - {week_end}")
 
                     for _, row in week_orders.iterrows():
-                        status = get_order_status(row)
-                        status_icon = "✅" if status == "received" else "⏳"
+                        s = get_order_status(row)
+                        icon = "✅" if s == "received" else "⏳"
                         st.markdown(
-                            f"- {status_icon} **{row['Supplier']}** — "
+                            f"- {icon} **{row['Supplier']}** — "
                             f"Due {format_date(row['DateDue'])} — "
                             f"{int(row['ItemCount'])} items — "
                             f"{format_currency(row['TotalCost'])}"
                         )
-
                     st.markdown("")
 
 
@@ -618,13 +849,21 @@ with tab_timeline:
 with tab_items:
     st.markdown("### 📦 All Order Items (Expanded)")
 
-    # Filter items to matching orders
-    filtered_items = order_df[order_df["OrderID"].isin(filtered_order_ids)].copy()
+    if filtered_order_ids:
+        parts = [
+            order_items_by_id[oid]
+            for oid in filtered_order_ids
+            if oid in order_items_by_id
+        ]
+        filtered_items = (
+            pd.concat(parts, ignore_index=True) if parts else pd.DataFrame()
+        )
+    else:
+        filtered_items = pd.DataFrame()
 
     if filtered_items.empty:
         st.info("No items match current filters.")
     else:
-        # Item-level search
         item_search = st.text_input(
             "Search items",
             placeholder="Search by item name, code, variety...",
@@ -632,15 +871,11 @@ with tab_items:
         )
 
         if item_search:
-            search_lower = item_search.lower()
+            sl = item_search.lower()
             mask = (
-                filtered_items["Item"].str.lower().str.contains(search_lower, na=False)
-                | filtered_items["Variety"]
-                .str.lower()
-                .str.contains(search_lower, na=False)
-                | filtered_items["ItemCode"]
-                .str.lower()
-                .str.contains(search_lower, na=False)
+                filtered_items["Item"].str.lower().str.contains(sl, na=False)
+                | filtered_items["Variety"].str.lower().str.contains(sl, na=False)
+                | filtered_items["ItemCode"].str.lower().str.contains(sl, na=False)
             )
             filtered_items = filtered_items[mask]
 
@@ -648,82 +883,15 @@ with tab_items:
             f"**{len(filtered_items)} items across {filtered_items['OrderID'].nunique()} orders**"
         )
 
-        display_cols = [
-            c
-            for c in [
-                "OrderItemID",
-                "OrderID",
-                "Supplier",
-                "Item",
-                "Variety",
-                "Color",
-                "ItemCode",
-                "NumberOfUnits",
-                "Unit",
-                "UnitPrice",
-                "Received",
-                "OrderItemType",
-                "DateDue",
-                "DateReceived",
-                "OrderNoteDecode",
-                "OrderItemComments",
-                "Leftover",
-                "ToOrder",
-                "LocationName",
-            ]
-            if c in filtered_items.columns
-        ]
-
-        items_display = filtered_items[display_cols].copy()
-
-        column_config = {
-            "OrderItemID": st.column_config.NumberColumn("Item ID", width="small"),
-            "OrderID": st.column_config.NumberColumn("Order", width="small"),
-            "Supplier": st.column_config.TextColumn("Supplier", width="medium"),
-            "Item": st.column_config.TextColumn("Item", width="medium"),
-            "Variety": st.column_config.TextColumn("Variety", width="small"),
-            "Color": st.column_config.TextColumn("Color", width="small"),
-            "ItemCode": st.column_config.TextColumn("Code", width="small"),
-            "NumberOfUnits": st.column_config.TextColumn("Qty", width="small"),
-            "Unit": st.column_config.TextColumn("Unit", width="small"),
-            "UnitPrice": st.column_config.NumberColumn(
-                "Price", format="$%.2f", width="small"
-            ),
-            "Received": st.column_config.CheckboxColumn("Rcvd", width="small"),
-            "OrderItemType": st.column_config.TextColumn("Type", width="small"),
-            "DateDue": st.column_config.DatetimeColumn(
-                "Due", format="MMM DD, YYYY", width="small"
-            ),
-            "DateReceived": st.column_config.DatetimeColumn(
-                "Received", format="MMM DD, YYYY", width="small"
-            ),
-            "OrderNoteDecode": st.column_config.TextColumn("Note", width="medium"),
-            "OrderItemComments": st.column_config.TextColumn(
-                "Comments", width="medium"
-            ),
-            "Leftover": st.column_config.TextColumn("Leftover", width="small"),
-            "ToOrder": st.column_config.TextColumn("To Order", width="small"),
-            "LocationName": st.column_config.TextColumn("Destination", width="small"),
-        }
-
-        st.dataframe(
-            items_display.head(200),
-            use_container_width=True,
-            hide_index=True,
-            column_config=column_config,
-        )
-
-        if len(items_display) > 200:
-            st.caption(f"Showing first 200 of {len(items_display)} items")
+        _display_items_dataframe(filtered_items, _ITEM_DISPLAY_COLS_ALL, max_rows=200)
 
 
 # ==================== TAB 4: RECEIVING ====================
 with tab_receiving:
     st.markdown("### ✅ Receive Orders")
-    st.markdown("Mark items as received, note condition, assign destinations.")
+    st.markdown("Check/uncheck items, add notes, then save when ready.")
 
-    # Only show pending orders
-    pending_orders = filtered_summary[filtered_summary["DateReceived"].isna()].copy()
+    pending_orders = filtered_summary[filtered_summary["DateReceived"].isna()]
 
     if pending_orders.empty:
         st.success("🎉 All orders have been received!")
@@ -733,7 +901,7 @@ with tab_receiving:
         for _, order_row in pending_orders.head(
             st.session_state.results_limit
         ).iterrows():
-            order_id = order_row["OrderID"]
+            order_id = int(order_row["OrderID"])
             supplier = (
                 order_row["Supplier"] if pd.notna(order_row["Supplier"]) else "Unknown"
             )
@@ -750,156 +918,473 @@ with tab_receiving:
                 f"{status_label} — {supplier} — Order #{order_num} — Due {format_date(order_row['DateDue'])}",
                 expanded=False,
             ):
-                # Order-level receive
-                recv_col1, recv_col2 = st.columns([1, 3])
+                # Everything inside st.form — no reruns until submit
+                with st.form(f"recv_form_{order_id}"):
+                    # ---- Order-level ----
+                    recv_col1, recv_col2 = st.columns([1, 3])
 
-                with recv_col1:
-                    if st.button(
-                        "✅ Mark Entire Order Received",
-                        key=f"recv_order_{order_id}",
-                        use_container_width=True,
-                    ):
-                        try:
-                            api.generic_update(
-                                model_class=Order,
-                                id_column="OrderID",
-                                id_value=order_id,
-                                updates={"DateReceived": datetime.now()},
-                                allowed_fields={"DateReceived", "OrderComments"},
+                    with recv_col1:
+                        receive_all = st.checkbox(
+                            "Receive entire order",
+                            value=False,
+                            key=f"recv_all_{order_id}",
+                        )
+
+                    with recv_col2:
+                        order_comment = st.text_input(
+                            "Receiving notes",
+                            key=f"recv_comment_{order_id}",
+                            placeholder="e.g., 2 flats damaged, rest in good condition",
+                        )
+
+                    # ---- Item-level ----
+                    st.markdown("**Items:**")
+                    items = get_order_items(order_id)
+
+                    # Store DB state for diffing on submit
+                    item_db_states = {}
+
+                    if not items.empty:
+                        for item_idx, item_row in items.iterrows():
+                            item_id = int(item_row["OrderItemID"])
+                            item_name = (
+                                item_row["Item"]
+                                if pd.notna(item_row.get("Item"))
+                                else "Unknown"
                             )
-                            st.success(f"✅ Order #{order_num} marked as received!")
-                            refresh_data()
-                            st.rerun()
-                        except Exception as e:
-                            st.error(f"❌ Error: {e}")
+                            variety = (
+                                f" - {item_row['Variety']}"
+                                if pd.notna(item_row.get("Variety"))
+                                else ""
+                            )
+                            qty = item_row.get("NumberOfUnits", "?")
+                            unit = item_row.get("Unit", "")
+                            db_received = bool(item_row.get("Received", False))
+                            item_db_states[item_id] = {
+                                "received": db_received,
+                                "comments": item_row.get("OrderItemComments", ""),
+                            }
 
-                with recv_col2:
-                    order_comment = st.text_input(
-                        "Receiving notes (condition, issues, etc.)",
-                        key=f"recv_comment_{order_id}",
-                        placeholder="e.g., 2 flats damaged, rest in good condition",
+                            i_col1, i_col2, i_col3 = st.columns([3, 1, 1])
+
+                            with i_col1:
+                                st.checkbox(
+                                    f"**{item_name}{variety}** — {qty} {unit}",
+                                    value=db_received,
+                                    key=f"recv_chk_{order_id}_{item_id}",
+                                )
+
+                            with i_col2:
+                                st.text_input(
+                                    "Condition",
+                                    key=f"recv_note_{order_id}_{item_id}",
+                                    placeholder="Good / Damaged",
+                                    label_visibility="collapsed",
+                                )
+
+                            with i_col3:
+                                dest = (
+                                    item_row["LocationName"]
+                                    if pd.notna(item_row.get("LocationName"))
+                                    else "—"
+                                )
+                                st.caption(f"📍 {dest}")
+
+                    # ---- Submit ----
+                    submitted = st.form_submit_button(
+                        "💾 Save Changes",
+                        type="primary",
+                        use_container_width=True,
                     )
-                    if order_comment:
-                        if st.button(
-                            "💾 Save Note",
-                            key=f"save_comment_{order_id}",
-                        ):
-                            existing_comments = (
+
+                    if submitted:
+                        save_errors = []
+                        save_count = 0
+
+                        # Process item-level changes
+                        for item_id, db_state in item_db_states.items():
+                            db_received = db_state["received"]
+
+                            # Read form widget values
+                            chk_key = f"recv_chk_{order_id}_{item_id}"
+                            new_received = st.session_state.get(chk_key, db_received)
+                            if receive_all:
+                                new_received = True
+
+                            note_key = f"recv_note_{order_id}_{item_id}"
+                            condition_note = st.session_state.get(note_key, "")
+
+                            updates = {}
+
+                            if new_received != db_received:
+                                updates["Received"] = new_received
+
+                            if condition_note:
+                                existing = db_state["comments"]
+                                if pd.isna(existing):
+                                    existing = ""
+                                timestamp = datetime.now().strftime("%m/%d/%y")
+                                updates["OrderComments"] = (
+                                    f"{existing}\n[{timestamp}] {condition_note}".strip()
+                                )
+
+                            if updates:
+                                try:
+                                    api.generic_update(
+                                        model_class=OrderItem,
+                                        id_column="OrderItemID",
+                                        id_value=item_id,
+                                        updates=updates,
+                                        allowed_fields={
+                                            "Received",
+                                            "OrderComments",
+                                            "Leftover",
+                                        },
+                                    )
+                                    save_count += 1
+                                except Exception as e:
+                                    save_errors.append(f"Item {item_id}: {e}")
+
+                        # Process order-level changes
+                        order_updates = {}
+
+                        if order_comment:
+                            existing_order_comments = (
                                 order_row["OrderComments"]
                                 if pd.notna(order_row.get("OrderComments"))
                                 else ""
                             )
                             timestamp = datetime.now().strftime("%m/%d/%y")
-                            updated_comments = f"{existing_comments}\n[{timestamp}] {order_comment}".strip()
+                            order_updates["OrderComments"] = (
+                                f"{existing_order_comments}\n[{timestamp}] {order_comment}".strip()
+                            )
+
+                        if receive_all:
+                            order_updates["DateReceived"] = datetime.now()
+
+                        if order_updates:
                             try:
                                 api.generic_update(
                                     model_class=Order,
                                     id_column="OrderID",
                                     id_value=order_id,
-                                    updates={"OrderComments": updated_comments},
-                                    allowed_fields={"OrderComments", "DateReceived"},
+                                    updates=order_updates,
+                                    allowed_fields={
+                                        "OrderComments",
+                                        "DateReceived",
+                                    },
                                 )
-                                st.success("💾 Note saved!")
-                                refresh_data()
-                                st.rerun()
+                                save_count += 1
                             except Exception as e:
-                                st.error(f"❌ Error: {e}")
+                                save_errors.append(f"Order: {e}")
 
-                # Item-level details
-                st.markdown("**Items:**")
-                items = order_df[order_df["OrderID"] == order_id].copy()
+                        if save_errors:
+                            for err in save_errors:
+                                st.error(f"❌ {err}")
+                        if save_count:
+                            st.success(f"✅ Saved {save_count} change(s).")
+                            refresh_data()
+                            st.rerun()
+                        elif not save_errors:
+                            st.info("No changes to save.")
 
-                if not items.empty:
-                    for item_idx, item_row in items.iterrows():
-                        item_id = item_row["OrderItemID"]
-                        item_name = (
-                            item_row["Item"]
-                            if pd.notna(item_row.get("Item"))
-                            else "Unknown"
+
+# ==================== TAB 5: CREATE ORDER ====================
+with tab_create:
+    st.markdown("### ➕ Create New Order")
+
+    # Lookup data for dropdowns (Tier-1 cached, no DB hit on rerun)
+    supplier_df = api.supplier_cache
+    broker_df = api.broker_cache
+    shipper_df = api.shipper_cache
+    season_df = api.growing_season_cache
+    item_df = api.item_cache
+    order_item_type_df = api.order_item_type_cache
+    order_note_df = api.order_note_cache
+
+    # Build display maps: "Name" -> ID
+    supplier_map = (
+        dict(zip(supplier_df["Supplier"], supplier_df["SupplierID"]))
+        if not supplier_df.empty
+        else {}
+    )
+    broker_map = (
+        dict(zip(broker_df["Broker"], broker_df["BrokerID"]))
+        if not broker_df.empty
+        else {}
+    )
+    shipper_map = (
+        dict(zip(shipper_df["Shipper"], shipper_df["ShipperID"]))
+        if not shipper_df.empty
+        else {}
+    )
+    season_map = (
+        dict(zip(season_df["GrowingSeason"], season_df["GrowingSeasonID"]))
+        if not season_df.empty
+        else {}
+    )
+
+    item_map = {}
+    if not item_df.empty:
+        for _, r in item_df.iterrows():
+            name = r.get("Item")
+            if pd.isna(name) or not name:
+                continue
+            label = str(name)
+            if pd.notna(r.get("Variety")) and r["Variety"]:
+                label += f" - {r['Variety']}"
+            if pd.notna(r.get("Color")) and r["Color"]:
+                label += f" ({r['Color']})"
+            item_map[label] = r["ItemID"]
+
+    oit_map = (
+        dict(
+            zip(
+                order_item_type_df["OrderItemType"],
+                order_item_type_df["OrderItemTypeID"],
+            )
+        )
+        if not order_item_type_df.empty
+        else {}
+    )
+    note_map = (
+        dict(zip(order_note_df["OrderNote"], order_note_df["OrderNoteID"]))
+        if not order_note_df.empty
+        else {}
+    )
+
+    # ---- Line items (outside form — needs dynamic add/remove buttons) ----
+    # This section is purely session_state; nothing hits the DB until final submit.
+
+    st.markdown("#### 1. Build Item List")
+    st.caption(
+        "Add items below. Nothing is saved until you submit the full order at the bottom."
+    )
+
+    if "new_order_line_items" not in st.session_state:
+        st.session_state.new_order_line_items = []
+
+    li_col1, li_col2, li_col3, li_col4 = st.columns([3, 1, 1, 1])
+
+    with li_col1:
+        li_item = st.selectbox(
+            "Item",
+            options=[""] + sorted(item_map.keys()),
+            key="li_item_select",
+        )
+    with li_col2:
+        li_qty = st.text_input("Qty", key="li_qty", placeholder="e.g., 10")
+    with li_col3:
+        li_unit = st.text_input("Unit", key="li_unit", placeholder="e.g., Flat")
+    with li_col4:
+        li_price = st.number_input(
+            "Unit Price",
+            min_value=0.0,
+            step=0.01,
+            format="%.2f",
+            key="li_price",
+        )
+
+    li_extra1, li_extra2, li_extra3 = st.columns(3)
+    with li_extra1:
+        li_code = st.text_input("Item Code", key="li_code", placeholder="Supplier code")
+    with li_extra2:
+        li_type = st.selectbox(
+            "Item Type",
+            options=["None"] + list(oit_map.keys()),
+            key="li_type_select",
+        )
+    with li_extra3:
+        li_note = st.selectbox(
+            "Order Note",
+            options=["None"] + list(note_map.keys()),
+            key="li_note_select",
+        )
+
+    if st.button("➕ Add Item to List", key="add_line_item"):
+        if li_item and li_qty:
+            st.session_state.new_order_line_items.append(
+                {
+                    "item_label": li_item,
+                    "ItemID": item_map[li_item],
+                    "NumberOfUnits": li_qty,
+                    "Unit": li_unit or None,
+                    "UnitPrice": li_price if li_price > 0 else None,
+                    "ItemCode": li_code or None,
+                    "OrderItemTypeID": (
+                        oit_map.get(li_type) if li_type != "None" else None
+                    ),
+                    "OrderNote": (note_map.get(li_note) if li_note != "None" else None),
+                }
+            )
+            st.rerun()
+        else:
+            st.warning("Please select an item and enter a quantity.")
+
+    # Show pending line items
+    if st.session_state.new_order_line_items:
+        st.markdown(f"**{len(st.session_state.new_order_line_items)} item(s) staged:**")
+        for i, li in enumerate(st.session_state.new_order_line_items):
+            li_display, li_remove = st.columns([5, 1])
+            with li_display:
+                price_str = f" @ ${li['UnitPrice']:.2f}" if li.get("UnitPrice") else ""
+                st.markdown(
+                    f"{i + 1}. **{li['item_label']}** — "
+                    f"{li['NumberOfUnits']} {li.get('Unit') or ''}{price_str}"
+                )
+            with li_remove:
+                if st.button("🗑️", key=f"remove_li_{i}"):
+                    st.session_state.new_order_line_items.pop(i)
+                    st.rerun()
+    else:
+        st.info("No items added yet. You can also add items after creating the order.")
+
+    st.markdown("---")
+
+    # ---- Order header + submit (inside st.form — no reruns on input) ----
+    # All fields here are batched: typing, selecting, etc. won't cause a
+    # page rerun. Only clicking "Create Order" submits everything.
+
+    st.markdown("#### 2. Order Details & Submit")
+
+    with st.form("create_order_form", clear_on_submit=True):
+        oc1, oc2 = st.columns(2)
+
+        with oc1:
+            new_supplier = st.selectbox(
+                "Supplier *",
+                options=[""] + list(supplier_map.keys()),
+                key="form_supplier",
+            )
+            new_broker = st.selectbox(
+                "Broker",
+                options=["None"] + list(broker_map.keys()),
+                key="form_broker",
+            )
+            new_shipper = st.selectbox(
+                "Shipper",
+                options=["None"] + list(shipper_map.keys()),
+                key="form_shipper",
+            )
+            new_season = st.selectbox(
+                "Growing Season",
+                options=["None"] + list(season_map.keys()),
+                key="form_season",
+            )
+
+        with oc2:
+            new_date_placed = st.date_input(
+                "Date Placed",
+                value=datetime.now().date(),
+                key="form_date_placed",
+            )
+            new_date_due = st.date_input(
+                "Date Due *",
+                value=None,
+                key="form_date_due",
+            )
+            new_order_number = st.text_input(
+                "Order Number",
+                key="form_order_number",
+                placeholder="e.g., PO-2026-001",
+            )
+            new_tracking = st.text_input(
+                "Tracking Number",
+                key="form_tracking",
+            )
+
+        new_total_cost = st.number_input(
+            "Total Cost",
+            min_value=0.0,
+            step=0.01,
+            format="%.2f",
+            key="form_total_cost",
+        )
+        new_order_comments = st.text_area(
+            "Order Comments",
+            key="form_comments",
+            placeholder="Any notes about this order...",
+        )
+
+        # Show summary of what will be created
+        n_items = len(st.session_state.new_order_line_items)
+        if n_items:
+            st.caption(f"This will create 1 order + {n_items} item(s) staged above.")
+        else:
+            st.caption(
+                "This will create an order with no items (you can add them later)."
+            )
+
+        submitted = st.form_submit_button(
+            "✅ Create Order",
+            type="primary",
+            use_container_width=True,
+        )
+
+        if submitted:
+            errors = []
+            if not new_supplier:
+                errors.append("Supplier is required.")
+            if not new_date_due:
+                errors.append("Date Due is required.")
+
+            if errors:
+                for err in errors:
+                    st.error(err)
+            else:
+                try:
+                    order_result = api.table_add_order(
+                        SupplierID=supplier_map[new_supplier],
+                        DateDue=datetime.combine(new_date_due, datetime.min.time()),
+                        DatePlaced=datetime.combine(
+                            new_date_placed, datetime.min.time()
+                        ),
+                        OrderNumber=new_order_number or None,
+                        BrokerID=(
+                            broker_map.get(new_broker) if new_broker != "None" else None
+                        ),
+                        ShipperID=(
+                            shipper_map.get(new_shipper)
+                            if new_shipper != "None"
+                            else None
+                        ),
+                        GrowingSeasonID=(
+                            season_map.get(new_season) if new_season != "None" else None
+                        ),
+                        GrowingSeason=(new_season if new_season != "None" else None),
+                        TrackingNumber=new_tracking or None,
+                        TotalCost=(new_total_cost if new_total_cost > 0 else None),
+                        OrderComments=new_order_comments or None,
+                    )
+
+                    new_order_id = order_result["OrderID"]
+
+                    items_added = 0
+                    for li in st.session_state.new_order_line_items:
+                        api.table_add_order_item(
+                            OrderID=new_order_id,
+                            ItemID=li["ItemID"],
+                            NumberOfUnits=li["NumberOfUnits"],
+                            Unit=li.get("Unit"),
+                            UnitPrice=li.get("UnitPrice"),
+                            ItemCode=li.get("ItemCode"),
+                            OrderItemTypeID=li.get("OrderItemTypeID"),
+                            OrderNote=li.get("OrderNote"),
                         )
-                        variety = (
-                            f" - {item_row['Variety']}"
-                            if pd.notna(item_row.get("Variety"))
-                            else ""
-                        )
-                        qty = item_row.get("NumberOfUnits", "?")
-                        unit = item_row.get("Unit", "")
-                        received = item_row.get("Received", False)
+                        items_added += 1
 
-                        i_col1, i_col2, i_col3, i_col4 = st.columns([3, 1, 1, 1])
+                    st.session_state.new_order_line_items = []
 
-                        with i_col1:
-                            received_marker = "✅" if received else "⬜"
-                            st.markdown(
-                                f"{received_marker} **{item_name}{variety}** — {qty} {unit}"
-                            )
+                    st.success(
+                        f"✅ Order #{new_order_id} created"
+                        + (f" with {items_added} items!" if items_added else "!")
+                    )
 
-                        with i_col2:
-                            if not received:
-                                if st.button(
-                                    "Receive",
-                                    key=f"recv_item_{item_id}",
-                                ):
-                                    try:
-                                        api.generic_update(
-                                            model_class=OrderItem,
-                                            id_column="OrderItemID",
-                                            id_value=item_id,
-                                            updates={"Received": True},
-                                            allowed_fields={
-                                                "Received",
-                                                "OrderComments",
-                                                "Leftover",
-                                            },
-                                        )
-                                        st.success(f"✅ {item_name} received!")
-                                        refresh_data()
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"❌ {e}")
+                    refresh_data()
+                    st.rerun()
 
-                        with i_col3:
-                            item_note = st.text_input(
-                                "Condition",
-                                key=f"item_note_{item_id}",
-                                placeholder="Good / Damaged / Short",
-                                label_visibility="collapsed",
-                            )
-                            if item_note:
-                                if st.button("💾", key=f"save_item_note_{item_id}"):
-                                    existing = (
-                                        item_row["OrderItemComments"]
-                                        if pd.notna(item_row.get("OrderItemComments"))
-                                        else ""
-                                    )
-                                    timestamp = datetime.now().strftime("%m/%d/%y")
-                                    updated = (
-                                        f"{existing}\n[{timestamp}] {item_note}".strip()
-                                    )
-                                    try:
-                                        api.generic_update(
-                                            model_class=OrderItem,
-                                            id_column="OrderItemID",
-                                            id_value=item_id,
-                                            updates={"OrderComments": updated},
-                                            allowed_fields={
-                                                "Received",
-                                                "OrderComments",
-                                                "Leftover",
-                                            },
-                                        )
-                                        refresh_data()
-                                        st.rerun()
-                                    except Exception as e:
-                                        st.error(f"❌ {e}")
-
-                        with i_col4:
-                            dest = (
-                                item_row["LocationName"]
-                                if pd.notna(item_row.get("LocationName"))
-                                else "—"
-                            )
-                            st.caption(f"📍 {dest}")
+                except Exception as e:
+                    st.error(f"❌ Error creating order: {e}")
 
 
 # ===== FOOTER =====

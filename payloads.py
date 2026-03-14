@@ -188,14 +188,15 @@ class PasswordPayload(TypedDict, total=False):
 
 class SeasonalNotesPayload(TypedDict, total=False):
     NoteID: int
-    ItemId: int
+    ItemID: int
     GrowingSeasonID: int
-    Greenhouse: bool
+    Greenhouse: int
     Note: str
     LastUpdate: datetime
 
 
 class OrderItemDestinationPayload(TypedDict, total=False):
+    OrderItemDestinationID: int
     OrderItemID: int
     Count: float
     UnitID: int
