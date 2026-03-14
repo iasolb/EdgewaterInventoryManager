@@ -19,7 +19,10 @@ yarn.lock
 *.sql.backup
 /backups/*
 !backups/.gitkeep
-database/datasource/
+database/datasource/Users.csv
+database/datasource/Passwords.csv
+**/Users.csv
+**/Passwords.csv
 # Logs
 logs/
 *.log
