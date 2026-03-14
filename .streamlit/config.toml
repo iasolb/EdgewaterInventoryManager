@@ -1,0 +1,17 @@
+[theme]
+# Edgewater Farm Brand Theme
+# Family farm since 1835 — Plainfield, NH
+# Connecticut River valley earth tones with heritage character
+
+# Primary accent — deep sage green (greenhouse, fields, growing things)
+primaryColor = "#4A7C59"
+
+# Backgrounds — warm cream tones, not sterile white
+backgroundColor = "#FDFBF7"
+secondaryBackgroundColor = "#F3EDE4"
+
+# Text — rich warm dark brown, not harsh black
+textColor = "#2C2417"
+
+# Font — serif for warmth and heritage character
+font = "serif"
