@@ -24,7 +24,20 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-
+st.markdown(
+    """
+    <style>
+        [data-testid="stSidebar"] { display: none !important; }
+        [data-testid="collapsedControl"] { display: none !important; }
+        [data-testid="stSidebarNav"] { display: none !important; }
+        [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+        button[kind="header"] { display: none !important; }
+        .stSidebar { display: none !important; }
+        section[data-testid="stSidebar"] { display: none !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 # ================================================================
 # SESSION STATE for login page flow
 # ================================================================
