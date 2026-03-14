@@ -9,14 +9,14 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 from rest.api import EdgewaterAPI
-from models import GrowingSeason as GS
-from payloads import GrowingSeasonPayload
+from export_utils import export_csv
+from models import Unit as UNT
 
 api = EdgewaterAPI()
 
 st.set_page_config(
-    page_title="Growing Seasons Administration",
-    page_icon="🌱",
+    page_title="Units Administration",
+    page_icon="📐",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -36,50 +36,50 @@ def refresh_cache():
     st.success("✅ Data refreshed!")
 
 
-def create_growing_season_from_form(form_data: dict) -> Optional[dict]:
-    """Create a new growing season"""
+def create_unit_from_form(form_data: dict) -> Optional[dict]:
+    """Create a new unit"""
     try:
-        result = api.table_add_growing_season(
-            GrowingSeasonYear=str(form_data["GrowingSeason"]),
-            StartDate=form_data["StartDate"],
-            EndDate=form_data.get("EndDate"),
+        result = api.table_add_unit(
+            UnitType=str(form_data["UnitType"]),
+            UnitSize=str(form_data["UnitSize"]),
+            UnitCategoryID=int(form_data["UnitCategoryID"]),
         )
         return result
     except Exception as e:
-        st.error(f"❌ Error creating growing season: {e}")
+        st.error(f"❌ Error creating unit: {e}")
         logger.error(f"Create failed: {e}")
         return None
 
 
-def update_growing_season(season_id: int, updates: dict) -> bool:
-    """Update a growing season"""
+def update_unit(unit_id: int, updates: dict) -> bool:
+    """Update a unit"""
     try:
-        allowed_fields = {"GrowingSeason", "StartDate", "EndDate"}
+        allowed_fields = {"UnitType", "UnitSize", "UnitCategoryID"}
 
         result = api.generic_update(
-            model_class=GS,
-            id_column="GrowingSeasonID",
-            id_value=season_id,
+            model_class=UNT,
+            id_column="UnitID",
+            id_value=unit_id,
             updates=updates,
             allowed_fields=allowed_fields,
         )
 
         if result:
-            logger.info(f"✓ Updated GrowingSeason {season_id}: {updates}")
+            logger.info(f"✓ Updated Unit {unit_id}: {updates}")
 
         return result is not None
     except Exception as e:
-        st.error(f"❌ Error updating growing season {season_id}: {e}")
-        logger.error(f"Update failed for GrowingSeason {season_id}: {e}")
+        st.error(f"❌ Error updating unit {unit_id}: {e}")
+        logger.error(f"Update failed for Unit {unit_id}: {e}")
         return False
 
 
-def delete_growing_season(season_id: int) -> bool:
-    """Delete a growing season"""
+def delete_unit(unit_id: int) -> bool:
+    """Delete a unit"""
     try:
-        return api._delete(GS, "GrowingSeasonID", season_id)
+        return api._delete(UNT, "UnitID", unit_id)
     except Exception as e:
-        st.error(f"❌ Error deleting growing season {season_id}: {e}")
+        st.error(f"❌ Error deleting unit {unit_id}: {e}")
         return False
 
 
@@ -91,7 +91,7 @@ with top_row[0]:
         st.switch_page("pages/admin_landing.py")
 
 with top_row[1]:
-    st.title("🌱 Growing Seasons Administration")
+    st.title("📐 Units Administration")
 
 with top_row[2]:
     if st.button("🔄 Refresh", use_container_width=True):
@@ -100,48 +100,61 @@ with top_row[2]:
 
 st.divider()
 
-# ==================== ADD NEW FORM ====================
-with st.expander("➕ Add New Growing Season", expanded=st.session_state.show_add_form):
-    st.write("### Create New Growing Season")
+# ==================== ADD NEW UNIT FORM ====================
+with st.expander("➕ Add New Unit", expanded=st.session_state.show_add_form):
+    st.write("### Create New Unit")
 
-    with st.form("add_growing_season_form", clear_on_submit=True):
+    # Prepare unit category lookup
+    unit_categories_dict = {
+        int(k): str(v)
+        for k, v in api.unit_category_cache.set_index("UnitCategoryID")["UnitCategory"]
+        .to_dict()
+        .items()
+    }
+
+    with st.form("add_unit_form", clear_on_submit=True):
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            form_season = st.text_input(
-                "Season Name *", key="form_season", placeholder="e.g., 2024"
+            form_unit_type = st.text_input(
+                "Unit Type *", key="form_unit_type", placeholder="e.g., Flat, Pot, Tray"
             )
 
         with col2:
-            form_start_date = st.date_input(
-                "Start Date *", value=datetime.now(), key="form_start_date"
+            form_unit_size = st.text_input(
+                "Unit Size *",
+                key="form_unit_size",
+                placeholder="e.g., 4 inch, 1 gallon",
             )
 
         with col3:
-            form_end_date = st.date_input("End Date", value=None, key="form_end_date")
+            form_unit_category_id = st.selectbox(
+                "Unit Category *",
+                options=list(unit_categories_dict.keys()),
+                format_func=lambda x: unit_categories_dict[x],
+                key="form_unit_category_id",
+            )
 
         submitted = st.form_submit_button(
-            "💾 Create Growing Season", type="primary", use_container_width=True
+            "💾 Create Unit", type="primary", use_container_width=True
         )
 
         if submitted:
-            if not form_season:
-                st.error("❌ Season name is required!")
+            if not form_unit_type:
+                st.error("❌ Unit type is required!")
+            elif not form_unit_size:
+                st.error("❌ Unit size is required!")
             else:
                 form_data = {
-                    "GrowingSeason": form_season,
-                    "StartDate": datetime.combine(form_start_date, datetime.min.time()),
-                    "EndDate": (
-                        datetime.combine(form_end_date, datetime.min.time())
-                        if form_end_date
-                        else None
-                    ),
+                    "UnitType": form_unit_type,
+                    "UnitSize": form_unit_size,
+                    "UnitCategoryID": form_unit_category_id,
                 }
 
-                result = create_growing_season_from_form(form_data)
+                result = create_unit_from_form(form_data)
                 if result:
                     st.success(
-                        f"✅ Growing Season '{form_season}' created! (ID: {result['GrowingSeasonID']})"
+                        f"✅ Unit '{form_unit_size} {form_unit_type}' created! (ID: {result['UnitID']})"
                     )
                     st.session_state.show_add_form = False
                     refresh_cache()
@@ -152,24 +165,43 @@ with st.expander("➕ Add New Growing Season", expanded=st.session_state.show_ad
 # ==================== FILTERS & SEARCH ====================
 st.write("### 🔍 Search & Filter")
 
-search_term = st.text_input(
-    "Search Growing Seasons",
-    placeholder="Search by season name...",
-    key="search_term",
-)
+filter_col1, filter_col2 = st.columns(2)
+
+with filter_col1:
+    search_term = st.text_input(
+        "Search Units",
+        placeholder="Search by unit type or size...",
+        key="search_term",
+    )
+
+with filter_col2:
+    category_filter = st.multiselect(
+        "Filter by Category",
+        options=api.unit_category_cache["UnitCategory"].dropna().unique().tolist(),
+        key="category_filter",
+    )
 
 # Apply filters
-filtered_df = api.growing_season_cache.copy()
+filtered_df = api.unit_cache.copy()
 
 # Search filter
 if search_term:
-    mask = filtered_df["GrowingSeason"].fillna("").str.contains(search_term, case=False)
+    mask = filtered_df["UnitType"].fillna("").str.contains(
+        search_term, case=False
+    ) | filtered_df["UnitSize"].fillna("").str.contains(search_term, case=False)
     filtered_df = filtered_df[mask]
+
+# Category filter
+if category_filter:
+    category_ids = api.unit_category_cache[
+        api.unit_category_cache["UnitCategory"].isin(category_filter)
+    ]["UnitCategoryID"].tolist()
+    filtered_df = filtered_df[filtered_df["UnitCategoryID"].isin(category_ids)]
 
 st.divider()
 
 # ==================== DATA DISPLAY & EDITING ====================
-st.write(f"### 📊 Growing Seasons ({len(filtered_df)} records)")
+st.write(f"### 📊 Units ({len(filtered_df)} records)")
 
 # Action buttons
 action_col1, action_col2 = st.columns([1, 5])
@@ -185,24 +217,20 @@ with action_col1:
 
 with action_col2:
     if st.button("📥 Export CSV", use_container_width=True):
-        csv = filtered_df.to_csv(index=False)
+        csv = export_csv(filtered_df, UNT)
         st.download_button(
             label="Download CSV",
             data=csv,
-            file_name=f"growing_seasons_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"units_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
             use_container_width=True,
         )
 
 column_config = {
-    "GrowingSeasonID": st.column_config.NumberColumn(
-        "ID", disabled=True, width="small"
-    ),
-    "GrowingSeason": st.column_config.TextColumn(
-        "Season Name", width="medium", required=True
-    ),
-    "StartDate": st.column_config.DatetimeColumn("Start Date", width="medium"),
-    "EndDate": st.column_config.DatetimeColumn("End Date", width="medium"),
+    "UnitID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
+    "UnitType": st.column_config.TextColumn("Unit Type", width="medium", required=True),
+    "UnitSize": st.column_config.TextColumn("Unit Size", width="medium", required=True),
+    "UnitCategoryID": st.column_config.NumberColumn("Category ID", width="small"),
 }
 
 if st.session_state.edit_mode:
@@ -214,7 +242,7 @@ if st.session_state.edit_mode:
         num_rows="fixed",
         column_config=column_config,
         hide_index=True,
-        key="growing_seasons_editor",
+        key="units_editor",
     )
 
     if not edited_df.equals(filtered_df):
@@ -230,13 +258,13 @@ if st.session_state.edit_mode:
                 error_count = 0
 
                 for idx in edited_df.index:
-                    season_id = edited_df.loc[idx, "GrowingSeasonID"]
+                    unit_id = edited_df.loc[idx, "UnitID"]
                     original_row = filtered_df.loc[idx]
                     edited_row = edited_df.loc[idx]
 
                     changes = {}
                     for col in edited_df.columns:
-                        if col != "GrowingSeasonID":
+                        if col != "UnitID":
                             orig_val = original_row[col]
                             edit_val = edited_row[col]
 
@@ -246,15 +274,15 @@ if st.session_state.edit_mode:
                                 changes[col] = edit_val
 
                     if changes:
-                        if update_growing_season(season_id, changes):
+                        if update_unit(unit_id, changes):
                             success_count += 1
                         else:
                             error_count += 1
 
                 if success_count > 0:
-                    st.success(f"✅ Updated {success_count} growing seasons")
+                    st.success(f"✅ Updated {success_count} units")
                 if error_count > 0:
-                    st.error(f"❌ Failed to update {error_count} growing seasons")
+                    st.error(f"❌ Failed to update {error_count} units")
 
                 refresh_cache()
                 st.rerun()
@@ -275,23 +303,47 @@ st.divider()
 with st.expander("🔧 Bulk Operations"):
     st.write("### Bulk Actions")
 
-    st.write("**Delete Growing Seasons**")
-    st.warning("⚠️ Permanent action!")
-    delete_ids = st.text_input(
-        "Season IDs (comma-separated)", key="bulk_delete_ids", placeholder="1,2,3"
-    )
-    confirm_delete = st.checkbox("Confirm deletion", key="confirm_bulk_delete")
-    if st.button("🗑️ Delete", key="bulk_delete_btn", disabled=not confirm_delete):
-        if delete_ids:
-            ids = [int(x.strip()) for x in delete_ids.split(",")]
-            success = sum([delete_growing_season(id) for id in ids])
-            st.success(f"✅ Deleted {success}/{len(ids)} growing seasons")
-            refresh_cache()
-            st.rerun()
+    bulk_col1, bulk_col2 = st.columns(2)
+
+    with bulk_col1:
+        st.write("**Change Category**")
+        bulk_unit_ids = st.text_input(
+            "Unit IDs (comma-separated)", key="bulk_category_ids", placeholder="1,2,3"
+        )
+        new_category = st.selectbox(
+            "New Category",
+            options=list(unit_categories_dict.keys()),
+            format_func=lambda x: unit_categories_dict[x],
+            key="bulk_new_category",
+        )
+        if st.button("Update Category", key="bulk_category_btn"):
+            if bulk_unit_ids:
+                ids = [int(x.strip()) for x in bulk_unit_ids.split(",")]
+                success = sum(
+                    [update_unit(id, {"UnitCategoryID": new_category}) for id in ids]
+                )
+                st.success(f"✅ Updated category for {success}/{len(ids)} units")
+                refresh_cache()
+                st.rerun()
+
+    with bulk_col2:
+        st.write("**Delete Units**")
+        st.warning("⚠️ Permanent action!")
+        delete_ids = st.text_input(
+            "Unit IDs (comma-separated)", key="bulk_delete_ids", placeholder="1,2,3"
+        )
+        confirm_delete = st.checkbox("Confirm deletion", key="confirm_bulk_delete")
+        if st.button("🗑️ Delete", key="bulk_delete_btn", disabled=not confirm_delete):
+            if delete_ids:
+                ids = [int(x.strip()) for x in delete_ids.split(",")]
+                success = sum([delete_unit(id) for id in ids])
+                st.success(f"✅ Deleted {success}/{len(ids)} units")
+                refresh_cache()
+                st.rerun()
 
 # ==================== FOOTER ====================
 st.divider()
 
 st.caption(
-    f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total growing seasons: {len(api.growing_season_cache)}"
+    f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total units: {len(api.unit_cache)}"
 )

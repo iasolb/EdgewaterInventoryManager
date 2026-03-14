@@ -9,6 +9,7 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 from rest.api import EdgewaterAPI
+from export_utils import export_csv
 from models import Item as IM
 from payloads import ItemPayload
 
@@ -307,7 +308,7 @@ with action_col1:
 
 with action_col2:
     if st.button("📥 Export CSV", use_container_width=True):
-        csv = filtered_df.to_csv(index=False)
+        csv = export_csv(filtered_df, IM)
         st.download_button(
             label="Download CSV",
             data=csv,

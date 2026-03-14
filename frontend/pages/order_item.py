@@ -9,14 +9,14 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 from rest.api import EdgewaterAPI
-from models import SeasonalNotes as SN
-from payloads import SeasonalNotesPayload
+from export_utils import export_csv
+from models import OrderItem as ORI
 
 api = EdgewaterAPI()
 
 st.set_page_config(
-    page_title="Seasonal Notes Administration",
-    page_icon="📝",
+    page_title="Order Items Administration",
+    page_icon="📦",
     layout="wide",
     initial_sidebar_state="collapsed",
 )
@@ -32,63 +32,77 @@ if "edit_mode" not in st.session_state:
 def refresh_cache():
     """Refresh caches after mutations"""
     with st.spinner("Refreshing data..."):
-        api.refresh_view_cache("seasonal_notes_table")
+        api.refresh_view_cache("order_table")
         api.clear_lookup_caches()
     st.success("✅ Data refreshed!")
 
 
-def create_seasonal_note_from_form(form_data: dict) -> Optional[dict]:
-    """Create a new seasonal note"""
+def create_order_item_from_form(form_data: dict) -> Optional[dict]:
+    """Create a new order item"""
     try:
-        result = api.table_add_seasonal_note(
+        result = api.table_add_order_item(
+            OrderID=int(form_data["OrderID"]),
             ItemID=int(form_data["ItemID"]),
-            GrowingSeasonID=int(form_data["GrowingSeasonID"]),
-            Greenhouse=int(form_data["Greenhouse"]),
-            Note=str(form_data["Note"]),
-            LastUpdate=form_data.get("LastUpdate") or datetime.now(),
+            NumberOfUnits=str(form_data["NumberOfUnits"]),
+            ItemCode=form_data.get("ItemCode"),
+            OrderItemTypeID=form_data.get("OrderItemTypeID"),
+            Unit=form_data.get("Unit"),
+            UnitPrice=form_data.get("UnitPrice"),
+            Received=form_data.get("Received", False),
+            OrderNote=form_data.get("OrderNote"),
+            OrderComments=form_data.get("OrderComments"),
+            Leftover=form_data.get("Leftover"),
+            ToOrder=form_data.get("ToOrder"),
         )
         return result
     except Exception as e:
-        st.error(f"❌ Error creating seasonal note: {e}")
+        st.error(f"❌ Error creating order item: {e}")
         logger.error(f"Create failed: {e}")
         return None
 
 
-def update_seasonal_note(note_id: int, updates: dict) -> bool:
-    """Update a seasonal note"""
+def update_order_item(order_item_id: int, updates: dict) -> bool:
+    """Update an order item"""
     try:
         allowed_fields = {
+            "OrderID",
             "ItemID",
-            "GrowingSeasonID",
-            "Greenhouse",
-            "Note",
-            "LastUpdate",
+            "ItemCode",
+            "OrderItemTypeID",
+            "Unit",
+            "UnitPrice",
+            "NumberOfUnits",
+            "Received",
+            "OrderNote",
+            "OrderComments",
+            "Leftover",
+            "ToOrder",
         }
 
         result = api.generic_update(
-            model_class=SN,
-            id_column="NoteID",
-            id_value=note_id,
+            model_class=ORI,
+            id_column="OrderItemID",
+            id_value=order_item_id,
             updates=updates,
             allowed_fields=allowed_fields,
         )
 
         if result:
-            logger.info(f"✓ Updated SeasonalNote {note_id}: {updates}")
+            logger.info(f"✓ Updated OrderItem {order_item_id}: {updates}")
 
         return result is not None
     except Exception as e:
-        st.error(f"❌ Error updating seasonal note {note_id}: {e}")
-        logger.error(f"Update failed for SeasonalNote {note_id}: {e}")
+        st.error(f"❌ Error updating order item {order_item_id}: {e}")
+        logger.error(f"Update failed for OrderItem {order_item_id}: {e}")
         return False
 
 
-def delete_seasonal_note(note_id: int) -> bool:
-    """Delete a seasonal note"""
+def delete_order_item(order_item_id: int) -> bool:
+    """Delete an order item"""
     try:
-        return api._delete(SN, "NoteID", note_id)
+        return api._delete(ORI, "OrderItemID", order_item_id)
     except Exception as e:
-        st.error(f"❌ Error deleting seasonal note {note_id}: {e}")
+        st.error(f"❌ Error deleting order item {order_item_id}: {e}")
         return False
 
 
@@ -100,7 +114,7 @@ with top_row[0]:
         st.switch_page("pages/admin_landing.py")
 
 with top_row[1]:
-    st.title("📝 Seasonal Notes Administration")
+    st.title("📦 Order Items Administration")
 
 with top_row[2]:
     if st.button("🔄 Refresh", use_container_width=True):
@@ -109,66 +123,100 @@ with top_row[2]:
 
 st.divider()
 
+# ==================== LOAD DATA ====================
+# Prepare lookup dictionaries
+items_dict = {
+    int(k): str(v)
+    for k, v in api.item_cache.set_index("ItemID")["Item"].to_dict().items()
+}
+order_item_types_dict = {
+    int(k): str(v)
+    for k, v in api.order_item_type_cache.set_index("OrderItemTypeID")["OrderItemType"]
+    .to_dict()
+    .items()
+}
+order_notes_dict = {
+    int(k): str(v)
+    for k, v in api.order_note_cache.set_index("OrderNoteID")["OrderNote"]
+    .to_dict()
+    .items()
+}
+
 # ==================== ADD NEW FORM ====================
-with st.expander("➕ Add New Seasonal Note", expanded=st.session_state.show_add_form):
-    st.write("### Create New Seasonal Note")
+with st.expander("➕ Add New Order Item", expanded=st.session_state.show_add_form):
+    st.write("### Create New Order Item")
 
-    # Prepare lookup dictionaries
-    items_dict = {
-        int(k): str(v)
-        for k, v in api.item_cache.set_index("ItemID")["Item"].to_dict().items()
-    }
-
-    with st.form("add_seasonal_note_form", clear_on_submit=True):
-        col1, col2 = st.columns(2)
+    with st.form("add_order_item_form", clear_on_submit=True):
+        col1, col2, col3 = st.columns(3)
 
         with col1:
+            form_order_id = st.number_input(
+                "Order ID *", min_value=1, step=1, key="form_order_id"
+            )
             form_item_id = st.selectbox(
                 "Item *",
                 options=list(items_dict.keys()),
                 format_func=lambda x: items_dict[x],
                 key="form_item_id",
             )
-            form_growing_season = st.number_input(
-                "Growing Season *",
-                min_value=1900,
-                max_value=2100,
-                value=datetime.now().year,
-                step=1,
-                key="form_growing_season",
+            form_item_code = st.text_input("Item Code", key="form_item_code")
+            form_order_item_type_id = st.selectbox(
+                "Order Item Type",
+                options=[None] + list(order_item_types_dict.keys()),
+                format_func=lambda x: "None" if x is None else order_item_types_dict[x],
+                key="form_order_item_type_id",
             )
 
         with col2:
-            form_greenhouse = st.number_input(
-                "Greenhouse *", min_value=0, step=1, key="form_greenhouse"
+            form_unit = st.text_input("Unit", key="form_unit")
+            form_unit_price = st.number_input(
+                "Unit Price", min_value=0.0, step=0.01, key="form_unit_price"
             )
-            form_last_update = st.date_input(
-                "Last Update", value=datetime.now(), key="form_last_update"
+            form_number_of_units = st.text_input(
+                "Number of Units *",
+                key="form_number_of_units",
+                placeholder="e.g., 3, 2.5, 3 1/10, 2 lbs, 6 oz",
             )
+            form_received = st.checkbox("Received", key="form_received")
 
-        form_note = st.text_area("Note *", key="form_note", height=150)
+        with col3:
+            form_order_note = st.selectbox(
+                "Order Note",
+                options=[None] + list(order_notes_dict.keys()),
+                format_func=lambda x: "None" if x is None else order_notes_dict[x],
+                key="form_order_note",
+            )
+            form_leftover = st.text_input("Leftover", key="form_leftover")
+            form_to_order = st.text_input("To Order", key="form_to_order")
+
+        form_comments = st.text_area("Comments", key="form_comments", height=100)
 
         submitted = st.form_submit_button(
-            "💾 Create Seasonal Note", type="primary", use_container_width=True
+            "💾 Create Order Item", type="primary", use_container_width=True
         )
 
         if submitted:
-            if not form_note:
-                st.error("❌ Note is required!")
+            if not form_number_of_units:
+                st.error("❌ Number of Units is required!")
             else:
                 form_data = {
+                    "OrderID": form_order_id,
                     "ItemID": form_item_id,
-                    "GrowingSeason": form_growing_season,
-                    "Greenhouse": form_greenhouse,
-                    "Note": form_note,
-                    "LastUpdate": datetime.combine(
-                        form_last_update, datetime.min.time()
-                    ),
+                    "ItemCode": form_item_code or None,
+                    "OrderItemTypeID": form_order_item_type_id,
+                    "Unit": form_unit or None,
+                    "UnitPrice": form_unit_price if form_unit_price > 0 else None,
+                    "NumberOfUnits": form_number_of_units,
+                    "Received": form_received,
+                    "OrderNote": form_order_note,
+                    "OrderComments": form_comments or None,
+                    "Leftover": form_leftover or None,
+                    "ToOrder": form_to_order or None,
                 }
 
-                result = create_seasonal_note_from_form(form_data)
+                result = create_order_item_from_form(form_data)
                 if result:
-                    st.success(f"✅ Seasonal note created! (ID: {result['NoteID']})")
+                    st.success(f"✅ Order item created! (ID: {result['OrderItemID']})")
                     st.session_state.show_add_form = False
                     refresh_cache()
                     st.rerun()
@@ -181,32 +229,34 @@ st.write("### 🔍 Search & Filter")
 filter_col1, filter_col2, filter_col3 = st.columns(3)
 
 with filter_col1:
+    order_id_filter = st.number_input(
+        "Filter by Order ID",
+        min_value=0,
+        value=0,
+        step=1,
+        key="order_id_filter",
+    )
+
+with filter_col2:
     item_filter = st.multiselect(
         "Filter by Item",
         options=api.item_cache["Item"].unique().tolist(),
         key="item_filter",
     )
 
-with filter_col2:
-    season_filter = st.multiselect(
-        "Filter by Growing Season",
-        options=sorted(
-            api.seasonal_notes_cache["GrowingSeasonID"].dropna().unique().tolist()
-        ),
-        key="season_filter",
-    )
-
 with filter_col3:
-    greenhouse_filter = st.multiselect(
-        "Filter by Greenhouse",
-        options=sorted(
-            api.seasonal_notes_cache["Greenhouse"].dropna().unique().tolist()
-        ),
-        key="greenhouse_filter",
+    received_filter = st.selectbox(
+        "Received Status",
+        options=["All", "Received", "Not Received"],
+        key="received_filter",
     )
 
 # Apply filters
-filtered_df = api.seasonal_notes_cache.copy()
+filtered_df = api.order_item_cache.copy()
+
+# Order ID filter
+if order_id_filter > 0:
+    filtered_df = filtered_df[filtered_df["OrderID"] == order_id_filter]
 
 # Item filter
 if item_filter:
@@ -215,18 +265,16 @@ if item_filter:
     ].tolist()
     filtered_df = filtered_df[filtered_df["ItemID"].isin(item_ids)]
 
-# Season filter
-if season_filter:
-    filtered_df = filtered_df[filtered_df["GrowingSeason"].isin(season_filter)]
-
-# Greenhouse filter
-if greenhouse_filter:
-    filtered_df = filtered_df[filtered_df["Greenhouse"].isin(greenhouse_filter)]
+# Received filter
+if received_filter == "Received":
+    filtered_df = filtered_df[filtered_df["Received"] == True]
+elif received_filter == "Not Received":
+    filtered_df = filtered_df[filtered_df["Received"] == False]
 
 st.divider()
 
 # ==================== DATA DISPLAY & EDITING ====================
-st.write(f"### 📊 Seasonal Notes ({len(filtered_df)} records)")
+st.write(f"### 📊 Order Items ({len(filtered_df)} records)")
 
 # Action buttons
 action_col1, action_col2 = st.columns([1, 5])
@@ -242,22 +290,31 @@ with action_col1:
 
 with action_col2:
     if st.button("📥 Export CSV", use_container_width=True):
-        csv = filtered_df.to_csv(index=False)
+        csv = export_csv(filtered_df, ORI)
         st.download_button(
             label="Download CSV",
             data=csv,
-            file_name=f"seasonal_notes_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            file_name=f"order_items_export_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
             mime="text/csv",
             use_container_width=True,
         )
 
 column_config = {
-    "NoteID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
+    "OrderItemID": st.column_config.NumberColumn("ID", disabled=True, width="small"),
+    "OrderID": st.column_config.NumberColumn("Order ID", width="small"),
     "ItemID": st.column_config.NumberColumn("Item ID", width="small"),
-    "GrowingSeason": st.column_config.NumberColumn("Growing Season", width="small"),
-    "Greenhouse": st.column_config.NumberColumn("Greenhouse", width="small"),
-    "Note": st.column_config.TextColumn("Note", width="large", required=True),
-    "LastUpdate": st.column_config.DatetimeColumn("Last Update", width="medium"),
+    "ItemCode": st.column_config.TextColumn("Item Code", width="small"),
+    "OrderItemTypeID": st.column_config.NumberColumn("Type ID", width="small"),
+    "Unit": st.column_config.TextColumn("Unit", width="small"),
+    "UnitPrice": st.column_config.NumberColumn(
+        "Unit Price", format="$%.2f", width="small"
+    ),
+    "NumberOfUnits": st.column_config.TextColumn("# Units", width="small"),
+    "Received": st.column_config.CheckboxColumn("Received", width="small"),
+    "OrderNote": st.column_config.NumberColumn("Note ID", width="small"),
+    "OrderComments": st.column_config.TextColumn("Comments", width="large"),
+    "Leftover": st.column_config.TextColumn("Leftover", width="small"),
+    "ToOrder": st.column_config.TextColumn("To Order", width="small"),
 }
 
 if st.session_state.edit_mode:
@@ -269,7 +326,7 @@ if st.session_state.edit_mode:
         num_rows="fixed",
         column_config=column_config,
         hide_index=True,
-        key="seasonal_notes_editor",
+        key="order_items_editor",
     )
 
     if not edited_df.equals(filtered_df):
@@ -285,13 +342,13 @@ if st.session_state.edit_mode:
                 error_count = 0
 
                 for idx in edited_df.index:
-                    note_id = edited_df.loc[idx, "NoteID"]
+                    order_item_id = edited_df.loc[idx, "OrderItemID"]
                     original_row = filtered_df.loc[idx]
                     edited_row = edited_df.loc[idx]
 
                     changes = {}
                     for col in edited_df.columns:
-                        if col != "NoteID":
+                        if col != "OrderItemID":
                             orig_val = original_row[col]
                             edit_val = edited_row[col]
 
@@ -301,15 +358,15 @@ if st.session_state.edit_mode:
                                 changes[col] = edit_val
 
                     if changes:
-                        if update_seasonal_note(note_id, changes):
+                        if update_order_item(order_item_id, changes):
                             success_count += 1
                         else:
                             error_count += 1
 
                 if success_count > 0:
-                    st.success(f"✅ Updated {success_count} seasonal notes")
+                    st.success(f"✅ Updated {success_count} order items")
                 if error_count > 0:
-                    st.error(f"❌ Failed to update {error_count} seasonal notes")
+                    st.error(f"❌ Failed to update {error_count} order items")
 
                 refresh_cache()
                 st.rerun()
@@ -330,23 +387,43 @@ st.divider()
 with st.expander("🔧 Bulk Operations"):
     st.write("### Bulk Actions")
 
-    st.write("**Delete Seasonal Notes**")
-    st.warning("⚠️ Permanent action!")
-    delete_ids = st.text_input(
-        "Note IDs (comma-separated)", key="bulk_delete_ids", placeholder="1,2,3"
-    )
-    confirm_delete = st.checkbox("Confirm deletion", key="confirm_bulk_delete")
-    if st.button("🗑️ Delete", key="bulk_delete_btn", disabled=not confirm_delete):
-        if delete_ids:
-            ids = [int(x.strip()) for x in delete_ids.split(",")]
-            success = sum([delete_seasonal_note(id) for id in ids])
-            st.success(f"✅ Deleted {success}/{len(ids)} seasonal notes")
-            refresh_cache()
-            st.rerun()
+    bulk_col1, bulk_col2 = st.columns(2)
+
+    with bulk_col1:
+        st.write("**Mark as Received**")
+        received_ids = st.text_input(
+            "Order Item IDs (comma-separated)",
+            key="bulk_received_ids",
+            placeholder="1,2,3",
+        )
+        if st.button("✅ Mark Received", key="bulk_received_btn"):
+            if received_ids:
+                ids = [int(x.strip()) for x in received_ids.split(",")]
+                success = sum([update_order_item(id, {"Received": True}) for id in ids])
+                st.success(f"✅ Marked {success}/{len(ids)} order items as received")
+                refresh_cache()
+                st.rerun()
+
+    with bulk_col2:
+        st.write("**Delete Order Items**")
+        st.warning("⚠️ Permanent action!")
+        delete_ids = st.text_input(
+            "Order Item IDs (comma-separated)",
+            key="bulk_delete_ids",
+            placeholder="1,2,3",
+        )
+        confirm_delete = st.checkbox("Confirm deletion", key="confirm_bulk_delete")
+        if st.button("🗑️ Delete", key="bulk_delete_btn", disabled=not confirm_delete):
+            if delete_ids:
+                ids = [int(x.strip()) for x in delete_ids.split(",")]
+                success = sum([delete_order_item(id) for id in ids])
+                st.success(f"✅ Deleted {success}/{len(ids)} order items")
+                refresh_cache()
+                st.rerun()
 
 # ==================== FOOTER ====================
 st.divider()
 
 st.caption(
-    f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total seasonal notes: {len(api.seasonal_notes_cache)}"
+    f"Last refreshed: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Total order items: {len(api.order_item_cache)}"
 )

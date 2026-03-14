@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 
 from rest.api import EdgewaterAPI
-from models import Order, OrderItem
+from models import Order, OrderItem, OrderItemDestination
 
 # ===== STREAMLIT CONFIG =====
 st.set_page_config(
@@ -368,6 +368,55 @@ _OIT_NAME_TO_ID = {v: k for k, v in _OIT_ID_TO_NAME.items()}
 # Options for SelectboxColumn (display names, with empty option)
 _NOTE_DISPLAY_OPTIONS = [""] + sorted(_NOTE_ID_TO_NAME.values())
 _OIT_DISPLAY_OPTIONS = [""] + sorted(_OIT_ID_TO_NAME.values())
+
+# ================================================================
+# Location lookups for destination assignment (receiving workflow)
+# ================================================================
+_location_df = api.location_cache
+_unit_df = api.unit_cache
+
+_LOCATION_ID_TO_NAME = (
+    dict(zip(_location_df["LocationID"], _location_df["Location"]))
+    if not _location_df.empty
+    else {}
+)
+_LOCATION_NAME_TO_ID = {v: k for k, v in _LOCATION_ID_TO_NAME.items()}
+
+
+# Group locations by category for organized multiselect display
+def _categorize_location(name: str) -> str:
+    lower = name.lower().strip()
+    if lower.startswith("field"):
+        return "Fields"
+    if any(lower.startswith(p) for p in ("greenhouse", "green house", "gh")):
+        return "Greenhouses"
+    return "Other"
+
+
+_LOCATION_NAMES_GROUPED = []
+if not _location_df.empty:
+    _loc_working = _location_df.copy()
+    _loc_working["_cat"] = _loc_working["Location"].apply(_categorize_location)
+    for _cat in ["Greenhouses", "Fields", "Other"]:
+        _cat_locs = _loc_working[_loc_working["_cat"] == _cat].sort_values("Location")
+        _LOCATION_NAMES_GROUPED.extend(_cat_locs["Location"].tolist())
+
+_UNIT_ID_TO_LABEL = (
+    {
+        int(r["UnitID"]): f"{r['UnitSize']} {r['UnitType']}"
+        for _, r in _unit_df.iterrows()
+    }
+    if not _unit_df.empty
+    else {}
+)
+_UNIT_LABEL_TO_ID = {v: k for k, v in _UNIT_ID_TO_LABEL.items()}
+
+# Pre-load existing destinations grouped by OrderItemID
+_oid_df = api.order_item_destination_cache
+_DESTINATIONS_BY_ITEM = {}
+if not _oid_df.empty:
+    for _oi_id, _group in _oid_df.groupby("OrderItemID"):
+        _DESTINATIONS_BY_ITEM[int(_oi_id)] = _group.to_dict("records")
 
 
 def _display_items_dataframe(items_df: pd.DataFrame, cols: list, max_rows: int = 0):
@@ -889,7 +938,10 @@ with tab_items:
 # ==================== TAB 4: RECEIVING ====================
 with tab_receiving:
     st.markdown("### ✅ Receive Orders")
-    st.markdown("Check/uncheck items, add notes, then save when ready.")
+    st.markdown(
+        "Check items, pick destination(s), then save. "
+        "Items with **multiple destinations** will prompt you to allocate quantities."
+    )
 
     pending_orders = filtered_summary[filtered_summary["DateReceived"].isna()]
 
@@ -898,195 +950,421 @@ with tab_receiving:
     else:
         st.markdown(f"**{len(pending_orders)} orders pending**")
 
-        for _, order_row in pending_orders.head(
-            st.session_state.results_limit
-        ).iterrows():
-            order_id = int(order_row["OrderID"])
-            supplier = (
-                order_row["Supplier"] if pd.notna(order_row["Supplier"]) else "Unknown"
-            )
-            order_num = (
-                order_row["OrderNumber"]
-                if pd.notna(order_row["OrderNumber"])
-                else "N/A"
-            )
+        # ---- Allocation workflow state ----
+        # When items need qty split across multiple locations, we queue them here.
+        # Each entry: {order_id, item_id, item_label, total_qty, unit, locations, unit_id}
+        if "_alloc_queue" not in st.session_state:
+            st.session_state._alloc_queue = []
+        if "_alloc_index" not in st.session_state:
+            st.session_state._alloc_index = 0
 
-            status = get_order_status(order_row)
-            status_label = "⚠️ OVERDUE" if status == "overdue" else "⏳ Pending"
+        # ---- If allocation queue is active, show allocation forms ----
+        if st.session_state._alloc_queue:
+            idx = st.session_state._alloc_index
+            queue = st.session_state._alloc_queue
 
-            with st.expander(
-                f"{status_label} — {supplier} — Order #{order_num} — Due {format_date(order_row['DateDue'])}",
-                expanded=False,
-            ):
-                # Everything inside st.form — no reruns until submit
-                with st.form(f"recv_form_{order_id}"):
-                    # ---- Order-level ----
-                    recv_col1, recv_col2 = st.columns([1, 3])
+            if idx >= len(queue):
+                # All allocations done — save them all
+                alloc_errors = []
+                alloc_count = 0
+                for entry in queue:
+                    for loc_name, qty in entry["allocations"].items():
+                        if qty > 0:
+                            loc_id = _LOCATION_NAME_TO_ID.get(loc_name)
+                            if loc_id:
+                                try:
+                                    api.table_add_order_item_destination(
+                                        OrderItemID=entry["item_id"],
+                                        Count=qty,
+                                        UnitID=entry["unit_id"],
+                                        LocationID=loc_id,
+                                    )
+                                    alloc_count += 1
+                                except Exception as e:
+                                    alloc_errors.append(f"{entry['item_label']}: {e}")
 
-                    with recv_col1:
-                        receive_all = st.checkbox(
-                            "Receive entire order",
-                            value=False,
-                            key=f"recv_all_{order_id}",
-                        )
+                if alloc_errors:
+                    for err in alloc_errors:
+                        st.error(f"❌ {err}")
+                if alloc_count:
+                    st.success(f"✅ Created {alloc_count} destination assignment(s).")
 
-                    with recv_col2:
-                        order_comment = st.text_input(
-                            "Receiving notes",
-                            key=f"recv_comment_{order_id}",
-                            placeholder="e.g., 2 flats damaged, rest in good condition",
-                        )
+                # Clear queue
+                st.session_state._alloc_queue = []
+                st.session_state._alloc_index = 0
+                refresh_data()
+                st.rerun()
+            else:
+                # Show allocation form for current item
+                current = queue[idx]
+                st.markdown("---")
+                st.markdown(f"### 📦 Allocate: {current['item_label']}")
+                st.markdown(
+                    f"**Total qty:** {current['total_qty']} {current['unit']}  |  "
+                    f"**Destinations:** {', '.join(current['locations'])}  |  "
+                    f"**Item {idx + 1} of {len(queue)}**"
+                )
 
-                    # ---- Item-level ----
-                    st.markdown("**Items:**")
-                    items = get_order_items(order_id)
+                with st.form(f"alloc_form_{current['item_id']}"):
+                    st.markdown("Enter quantity for each destination:")
 
-                    # Store DB state for diffing on submit
-                    item_db_states = {}
+                    try:
+                        total_numeric = int(float(str(current["total_qty"]).split()[0]))
+                    except (ValueError, IndexError):
+                        total_numeric = 1
 
-                    if not items.empty:
-                        for item_idx, item_row in items.iterrows():
-                            item_id = int(item_row["OrderItemID"])
-                            item_name = (
-                                item_row["Item"]
-                                if pd.notna(item_row.get("Item"))
-                                else "Unknown"
+                    n_locs = len(current["locations"])
+                    # Default: split evenly, remainder to first
+                    base_split = total_numeric // n_locs
+                    remainder = total_numeric - (base_split * n_locs)
+
+                    alloc_cols = st.columns(n_locs)
+                    for i, loc_name in enumerate(current["locations"]):
+                        default_val = base_split + (1 if i < remainder else 0)
+                        with alloc_cols[i]:
+                            st.number_input(
+                                f"📍 {loc_name}",
+                                min_value=0,
+                                value=default_val,
+                                step=1,
+                                key=f"alloc_qty_{current['item_id']}_{i}",
                             )
-                            variety = (
-                                f" - {item_row['Variety']}"
-                                if pd.notna(item_row.get("Variety"))
-                                else ""
-                            )
-                            qty = item_row.get("NumberOfUnits", "?")
-                            unit = item_row.get("Unit", "")
-                            db_received = bool(item_row.get("Received", False))
-                            item_db_states[item_id] = {
-                                "received": db_received,
-                                "comments": item_row.get("OrderItemComments", ""),
-                            }
 
-                            i_col1, i_col2, i_col3 = st.columns([3, 1, 1])
-
-                            with i_col1:
-                                st.checkbox(
-                                    f"**{item_name}{variety}** — {qty} {unit}",
-                                    value=db_received,
-                                    key=f"recv_chk_{order_id}_{item_id}",
-                                )
-
-                            with i_col2:
-                                st.text_input(
-                                    "Condition",
-                                    key=f"recv_note_{order_id}_{item_id}",
-                                    placeholder="Good / Damaged",
-                                    label_visibility="collapsed",
-                                )
-
-                            with i_col3:
-                                dest = (
-                                    item_row["LocationName"]
-                                    if pd.notna(item_row.get("LocationName"))
-                                    else "—"
-                                )
-                                st.caption(f"📍 {dest}")
-
-                    # ---- Submit ----
-                    submitted = st.form_submit_button(
-                        "💾 Save Changes",
+                    alloc_submitted = st.form_submit_button(
+                        f"✅ Confirm & {'Next Item' if idx < len(queue) - 1 else 'Finish'}",
                         type="primary",
                         use_container_width=True,
                     )
 
-                    if submitted:
-                        save_errors = []
-                        save_count = 0
+                    if alloc_submitted:
+                        # Collect allocations
+                        allocations = {}
+                        total_allocated = 0
+                        for i, loc_name in enumerate(current["locations"]):
+                            qty = st.session_state.get(
+                                f"alloc_qty_{current['item_id']}_{i}", 0
+                            )
+                            allocations[loc_name] = qty
+                            total_allocated += qty
 
-                        # Process item-level changes
-                        for item_id, db_state in item_db_states.items():
-                            db_received = db_state["received"]
+                        if total_allocated == 0:
+                            st.error("❌ Total allocated must be greater than 0.")
+                        else:
+                            current["allocations"] = allocations
+                            st.session_state._alloc_index += 1
+                            st.rerun()
 
-                            # Read form widget values
-                            chk_key = f"recv_chk_{order_id}_{item_id}"
-                            new_received = st.session_state.get(chk_key, db_received)
-                            if receive_all:
-                                new_received = True
+        # ---- Normal receiving forms (no active allocation queue) ----
+        else:
+            for _, order_row in pending_orders.head(
+                st.session_state.results_limit
+            ).iterrows():
+                order_id = int(order_row["OrderID"])
+                supplier = (
+                    order_row["Supplier"]
+                    if pd.notna(order_row["Supplier"])
+                    else "Unknown"
+                )
+                order_num = (
+                    order_row["OrderNumber"]
+                    if pd.notna(order_row["OrderNumber"])
+                    else "N/A"
+                )
 
-                            note_key = f"recv_note_{order_id}_{item_id}"
-                            condition_note = st.session_state.get(note_key, "")
+                status = get_order_status(order_row)
+                status_label = "⚠️ OVERDUE" if status == "overdue" else "⏳ Pending"
 
-                            updates = {}
+                items = get_order_items(order_id)
+                item_count = len(items) if not items.empty else 0
 
-                            if new_received != db_received:
-                                updates["Received"] = new_received
+                with st.expander(
+                    f"{status_label} — {supplier} — Order #{order_num} "
+                    f"— {item_count} items "
+                    f"— Due {format_date(order_row['DateDue'])}",
+                    expanded=False,
+                ):
+                    with st.form(f"recv_form_{order_id}"):
+                        # ---- Order-level ----
+                        recv_col1, recv_col2 = st.columns([1, 3])
 
-                            if condition_note:
-                                existing = db_state["comments"]
-                                if pd.isna(existing):
-                                    existing = ""
-                                timestamp = datetime.now().strftime("%m/%d/%y")
-                                updates["OrderComments"] = (
-                                    f"{existing}\n[{timestamp}] {condition_note}".strip()
+                        with recv_col1:
+                            receive_all = st.checkbox(
+                                "Receive entire order",
+                                value=False,
+                                key=f"recv_all_{order_id}",
+                            )
+
+                        with recv_col2:
+                            order_comment = st.text_input(
+                                "Receiving notes",
+                                key=f"recv_comment_{order_id}",
+                                placeholder="e.g., 2 flats damaged",
+                            )
+
+                        # ---- Item-level ----
+                        if not items.empty:
+                            # Quick summary of what's in this order
+                            unit_summary = (
+                                items.groupby("Unit")["NumberOfUnits"].count().to_dict()
+                            )
+                            summary_parts = [
+                                f"{count} {utype}"
+                                for utype, count in unit_summary.items()
+                                if pd.notna(utype)
+                            ]
+                            if summary_parts:
+                                st.caption(
+                                    f"📋 {len(items)} items: "
+                                    + ", ".join(summary_parts)
                                 )
 
-                            if updates:
+                        st.markdown("**Items:**")
+
+                        item_db_states = {}
+
+                        if not items.empty:
+                            for item_idx, item_row in items.iterrows():
+                                item_id = int(item_row["OrderItemID"])
+                                item_name = (
+                                    item_row["Item"]
+                                    if pd.notna(item_row.get("Item"))
+                                    else "Unknown"
+                                )
+                                variety = (
+                                    f" - {item_row['Variety']}"
+                                    if pd.notna(item_row.get("Variety"))
+                                    else ""
+                                )
+                                qty = item_row.get("NumberOfUnits", "?")
+                                unit = item_row.get("Unit", "")
+                                db_received = bool(item_row.get("Received", False))
+                                item_db_states[item_id] = {
+                                    "received": db_received,
+                                    "comments": item_row.get("OrderItemComments", ""),
+                                    "qty": str(qty),
+                                    "unit": str(unit),
+                                    "label": f"{item_name}{variety}",
+                                }
+
+                                # Existing destinations for display
+                                existing_dests = _DESTINATIONS_BY_ITEM.get(item_id, [])
+                                existing_loc_names = [
+                                    _LOCATION_ID_TO_NAME.get(d["LocationID"], "?")
+                                    for d in existing_dests
+                                ]
+
+                                i_col1, i_col2, i_col3 = st.columns([2, 1, 2])
+
+                                with i_col1:
+                                    st.checkbox(
+                                        f"**{item_name}{variety}** — " f"{qty} {unit}",
+                                        value=db_received,
+                                        key=f"recv_chk_{order_id}_{item_id}",
+                                    )
+
+                                with i_col2:
+                                    st.text_input(
+                                        "Condition",
+                                        key=f"recv_note_{order_id}_{item_id}",
+                                        placeholder="Good / Damaged",
+                                        label_visibility="collapsed",
+                                    )
+
+                                with i_col3:
+                                    st.multiselect(
+                                        "Destinations",
+                                        options=_LOCATION_NAMES_GROUPED,
+                                        default=existing_loc_names,
+                                        key=f"recv_dest_{order_id}_{item_id}",
+                                        label_visibility="collapsed",
+                                        placeholder="📍 Select destination(s)",
+                                    )
+
+                        # ---- Submit ----
+                        submitted = st.form_submit_button(
+                            "💾 Save Changes",
+                            type="primary",
+                            use_container_width=True,
+                        )
+
+                        if submitted:
+                            save_errors = []
+                            save_count = 0
+                            alloc_needed = []
+
+                            for item_id, db_state in item_db_states.items():
+                                db_received = db_state["received"]
+
+                                # Read form widget values
+                                chk_key = f"recv_chk_{order_id}_{item_id}"
+                                new_received = st.session_state.get(
+                                    chk_key, db_received
+                                )
+                                if receive_all:
+                                    new_received = True
+
+                                note_key = f"recv_note_{order_id}_{item_id}"
+                                condition_note = st.session_state.get(note_key, "")
+
+                                updates = {}
+
+                                if new_received != db_received:
+                                    updates["Received"] = new_received
+
+                                if condition_note:
+                                    existing = db_state["comments"]
+                                    if pd.isna(existing):
+                                        existing = ""
+                                    timestamp = datetime.now().strftime("%m/%d/%y")
+                                    updates["OrderComments"] = (
+                                        f"{existing}\n[{timestamp}] "
+                                        f"{condition_note}"
+                                    ).strip()
+
+                                if updates:
+                                    try:
+                                        api.generic_update(
+                                            model_class=OrderItem,
+                                            id_column="OrderItemID",
+                                            id_value=item_id,
+                                            updates=updates,
+                                            allowed_fields={
+                                                "Received",
+                                                "OrderComments",
+                                                "Leftover",
+                                            },
+                                        )
+                                        save_count += 1
+                                    except Exception as e:
+                                        save_errors.append(f"Item {item_id}: {e}")
+
+                                # Process destinations
+                                dest_key = f"recv_dest_{order_id}_{item_id}"
+                                selected_locs = st.session_state.get(dest_key, [])
+
+                                # Find which are NEW (not already in DB)
+                                existing_dests = _DESTINATIONS_BY_ITEM.get(item_id, [])
+                                existing_loc_ids = {
+                                    d["LocationID"] for d in existing_dests
+                                }
+                                new_locs = [
+                                    loc
+                                    for loc in selected_locs
+                                    if _LOCATION_NAME_TO_ID.get(loc)
+                                    not in existing_loc_ids
+                                ]
+
+                                if len(new_locs) == 0:
+                                    pass  # No new destinations
+                                elif len(new_locs) == 1:
+                                    # Single new destination — assign
+                                    # full qty directly
+                                    loc_id = _LOCATION_NAME_TO_ID.get(new_locs[0])
+                                    if loc_id:
+                                        try:
+                                            qty_val = int(
+                                                float(str(db_state["qty"]).split()[0])
+                                            )
+                                        except (ValueError, IndexError):
+                                            qty_val = 1
+
+                                        # Get a UnitID from existing
+                                        # destinations or first available
+                                        unit_id = None
+                                        if existing_dests:
+                                            unit_id = existing_dests[0].get("UnitID")
+                                        if not unit_id and _UNIT_ID_TO_LABEL:
+                                            unit_id = list(_UNIT_ID_TO_LABEL.keys())[0]
+
+                                        try:
+                                            api.table_add_order_item_destination(
+                                                OrderItemID=item_id,
+                                                Count=max(qty_val, 1),
+                                                UnitID=unit_id or 1,
+                                                LocationID=loc_id,
+                                            )
+                                            save_count += 1
+                                        except Exception as e:
+                                            save_errors.append(
+                                                f"Dest {new_locs[0]}: {e}"
+                                            )
+                                else:
+                                    # Multiple new destinations — queue
+                                    # for allocation
+                                    unit_id = None
+                                    if existing_dests:
+                                        unit_id = existing_dests[0].get("UnitID")
+                                    if not unit_id and _UNIT_ID_TO_LABEL:
+                                        unit_id = list(_UNIT_ID_TO_LABEL.keys())[0]
+
+                                    alloc_needed.append(
+                                        {
+                                            "order_id": order_id,
+                                            "item_id": item_id,
+                                            "item_label": db_state["label"],
+                                            "total_qty": db_state["qty"],
+                                            "unit": db_state["unit"],
+                                            "locations": new_locs,
+                                            "unit_id": unit_id or 1,
+                                            "allocations": {},
+                                        }
+                                    )
+
+                            # Process order-level changes
+                            order_updates = {}
+
+                            if order_comment:
+                                existing_order_comments = (
+                                    order_row["OrderComments"]
+                                    if pd.notna(order_row.get("OrderComments"))
+                                    else ""
+                                )
+                                timestamp = datetime.now().strftime("%m/%d/%y")
+                                order_updates["OrderComments"] = (
+                                    f"{existing_order_comments}\n"
+                                    f"[{timestamp}] {order_comment}"
+                                ).strip()
+
+                            if receive_all:
+                                order_updates["DateReceived"] = datetime.now()
+
+                            if order_updates:
                                 try:
                                     api.generic_update(
-                                        model_class=OrderItem,
-                                        id_column="OrderItemID",
-                                        id_value=item_id,
-                                        updates=updates,
+                                        model_class=Order,
+                                        id_column="OrderID",
+                                        id_value=order_id,
+                                        updates=order_updates,
                                         allowed_fields={
-                                            "Received",
                                             "OrderComments",
-                                            "Leftover",
+                                            "DateReceived",
                                         },
                                     )
                                     save_count += 1
                                 except Exception as e:
-                                    save_errors.append(f"Item {item_id}: {e}")
+                                    save_errors.append(f"Order: {e}")
 
-                        # Process order-level changes
-                        order_updates = {}
+                            if save_errors:
+                                for err in save_errors:
+                                    st.error(f"❌ {err}")
+                            if save_count:
+                                st.success(f"✅ Saved {save_count} change(s).")
 
-                        if order_comment:
-                            existing_order_comments = (
-                                order_row["OrderComments"]
-                                if pd.notna(order_row.get("OrderComments"))
-                                else ""
-                            )
-                            timestamp = datetime.now().strftime("%m/%d/%y")
-                            order_updates["OrderComments"] = (
-                                f"{existing_order_comments}\n[{timestamp}] {order_comment}".strip()
-                            )
-
-                        if receive_all:
-                            order_updates["DateReceived"] = datetime.now()
-
-                        if order_updates:
-                            try:
-                                api.generic_update(
-                                    model_class=Order,
-                                    id_column="OrderID",
-                                    id_value=order_id,
-                                    updates=order_updates,
-                                    allowed_fields={
-                                        "OrderComments",
-                                        "DateReceived",
-                                    },
+                            # If allocations needed, queue them up
+                            if alloc_needed:
+                                st.session_state._alloc_queue = alloc_needed
+                                st.session_state._alloc_index = 0
+                                st.info(
+                                    f"📦 {len(alloc_needed)} item(s) need "
+                                    f"quantity allocation across locations. "
+                                    f"Redirecting..."
                                 )
-                                save_count += 1
-                            except Exception as e:
-                                save_errors.append(f"Order: {e}")
-
-                        if save_errors:
-                            for err in save_errors:
-                                st.error(f"❌ {err}")
-                        if save_count:
-                            st.success(f"✅ Saved {save_count} change(s).")
-                            refresh_data()
-                            st.rerun()
-                        elif not save_errors:
-                            st.info("No changes to save.")
+                                st.rerun()
+                            elif save_count and not save_errors:
+                                refresh_data()
+                                st.rerun()
+                            elif not save_errors:
+                                st.info("No changes to save.")
 
 
 # ==================== TAB 5: CREATE ORDER ====================

@@ -31,7 +31,7 @@ def hash_password(plain: str) -> str:
 
 
 def main():
-    email = "ianspraguesolberg@gmail.com"
+    email = ""
 
     print(f"\n--- Edgewater User Setup ---")
     print(f"Email: {email}")

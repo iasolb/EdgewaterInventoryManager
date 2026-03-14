@@ -1001,7 +1001,7 @@ class EdgewaterAPI:
         self,
         ItemID: int,
         UnitID: int,
-        NumberOfUnits: float,
+        NumberOfUnits: str,
         DateCounted: Optional[datetime] = None,
         InventoryComments: Optional[str] = None,
         LocationID: Optional[int] = None,
@@ -1010,7 +1010,7 @@ class EdgewaterAPI:
         payload: InventoryPayload = {
             "ItemID": ItemID,
             "UnitID": UnitID,
-            "NumberOfUnits": str(NumberOfUnits),
+            "NumberOfUnits": NumberOfUnits,
             "DateCounted": DateCounted or datetime.now(),
             "InventoryComments": InventoryComments,
             "LocationID": LocationID,

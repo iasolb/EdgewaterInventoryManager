@@ -9,6 +9,7 @@ from loguru import logger
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "rest"))
 from rest.api import EdgewaterAPI
+from export_utils import export_csv
 from models import Pitch as PIT
 from payloads import PitchPayload
 
@@ -144,8 +145,10 @@ with st.expander("➕ Add New Pitch Record", expanded=st.session_state.show_add_
                 format_func=lambda x: units_dict[x],
                 key="form_unit_id",
             )
-            form_number = st.number_input(
-                "Number of Units *", min_value=0.0, step=0.5, key="form_number"
+            form_number = st.text_input(
+                "Number of Units *",
+                key="form_number",
+                placeholder="e.g., 3, 2.5, 3 1/10, 2 lbs, 6 oz",
             )
 
         with col2:
@@ -162,8 +165,8 @@ with st.expander("➕ Add New Pitch Record", expanded=st.session_state.show_add_
         )
 
         if submitted:
-            if form_number <= 0:
-                st.error("❌ Number of units must be greater than 0!")
+            if not form_number:
+                st.error("❌ Number of units is required!")
             else:
                 form_data = {
                     "ItemID": form_item_id,
@@ -240,7 +243,7 @@ with action_col1:
 
 with action_col2:
     if st.button("📥 Export CSV", use_container_width=True):
-        csv = filtered_df.to_csv(index=False)
+        csv = export_csv(filtered_df, PIT)
         st.download_button(
             label="Download CSV",
             data=csv,
